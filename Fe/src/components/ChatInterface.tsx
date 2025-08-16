@@ -1,17 +1,22 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FiPlus, FiMessageSquare, FiUser, FiLogOut, FiUpload, FiX, FiSend, FiPaperclip, FiTrash2 } from "react-icons/fi";
+import { useAuth } from '../contexts/AuthContext';
+import chatService from '../services/chatService';
+import type { Chat, Message } from '../services/chatService';
+import fileService from '../services/fileService';
+import type { FileUpload } from '../services/fileService';
 
-interface Message {
+interface DisplayMessage {
   id: string;
   user: "user" | "bot";
   text: string;
   timestamp: Date;
 }
 
-interface Chat {
+interface DisplayChat {
   id: string;
   title: string;
-  messages: Message[];
+  messages: DisplayMessage[];
   createdAt: Date;
 }
 
@@ -22,23 +27,101 @@ interface UploadedFile {
   size: string;
 }
 
+interface ChatFile {
+  id: string;
+  originalName: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+  uploadedAt: string;
+}
+
 const ChatInterface = () => {
-  const [chats, setChats] = useState<Chat[]>([]);
+  const { user, logout } = useAuth();
+  const [chats, setChats] = useState<DisplayChat[]>([]);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [chatFiles, setChatFiles] = useState<ChatFile[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [chatsLoading, setChatsLoading] = useState(true);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const currentChat = chats.find(chat => chat.id === currentChatId);
 
+  // Load chats on component mount
+  useEffect(() => {
+    loadChats();
+  }, []);
+
+  // Load messages and files when current chat changes
+  useEffect(() => {
+    if (currentChatId) {
+      loadChatMessages(currentChatId);
+      loadChatFiles(currentChatId);
+    } else {
+      setChatFiles([]);
+    }
+  }, [currentChatId]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentChat?.messages]);
+
+  const loadChats = async () => {
+    try {
+      setChatsLoading(true);
+      const apiChats = await chatService.getChats();
+      const displayChats: DisplayChat[] = apiChats.map(chat => ({
+        id: chat.id,
+        title: chat.title,
+        messages: [],
+        createdAt: new Date(chat.createdAt)
+      }));
+      setChats(displayChats);
+      if (displayChats.length > 0 && !currentChatId) {
+        setCurrentChatId(displayChats[0].id);
+      }
+    } catch (error) {
+      console.error('Failed to load chats:', error);
+    } finally {
+      setChatsLoading(false);
+    }
+  };
+
+  const loadChatMessages = async (chatId: string) => {
+    try {
+      const { messages } = await chatService.getChatById(chatId);
+      const displayMessages: DisplayMessage[] = messages.map(msg => ({
+        id: msg.id,
+        user: msg.messageType === 'user' ? 'user' : 'bot',
+        text: msg.content,
+        timestamp: new Date(msg.createdAt)
+      }));
+      
+      setChats(prev => prev.map(chat => 
+        chat.id === chatId 
+          ? { ...chat, messages: displayMessages }
+          : chat
+      ));
+    } catch (error) {
+       console.error('Failed to load chat messages:', error);
+     }
+   };
+
+  const loadChatFiles = async (chatId: string) => {
+    try {
+      const files = await fileService.getChatFiles(chatId);
+      setChatFiles(files);
+    } catch (error) {
+      console.error('Failed to load chat files:', error);
+      setChatFiles([]);
+    }
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
@@ -48,36 +131,68 @@ const ChatInterface = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const createNewChat = () => {
-    const newChat: Chat = {
-      id: Date.now().toString(),
-      title: "New Chat",
-      messages: [],
-      createdAt: new Date()
-    };
-    setChats(prev => [newChat, ...prev]);
-    setCurrentChatId(newChat.id);
-    setUploadedFiles([]);
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  const deleteChat = (chatId: string) => {
-    setChats(prev => prev.filter(chat => chat.id !== chatId));
-    if (currentChatId === chatId) {
-      const remainingChats = chats.filter(chat => chat.id !== chatId);
-      setCurrentChatId(remainingChats.length > 0 ? remainingChats[0].id : null);
+  const createNewChat = async () => {
+    try {
+      const newChat = await chatService.createChat({ title: "New Chat" });
+      const displayChat: DisplayChat = {
+        id: newChat.id,
+        title: newChat.title,
+        messages: [],
+        createdAt: new Date(newChat.createdAt)
+      };
+      setChats(prev => [displayChat, ...prev]);
+      setCurrentChatId(newChat.id);
+      setUploadedFiles([]);
+      setChatFiles([]);
+    } catch (error) {
+       console.error('Failed to create new chat:', error);
+     }
+   };
+
+  const deleteChat = async (chatId: string) => {
+    try {
+      await chatService.deleteChat(chatId);
+      setChats(prev => prev.filter(chat => chat.id !== chatId));
+      if (currentChatId === chatId) {
+        const remainingChats = chats.filter(chat => chat.id !== chatId);
+        setCurrentChatId(remainingChats.length > 0 ? remainingChats[0].id : null);
+      }
+    } catch (error) {
+      console.error('Failed to delete chat:', error);
     }
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
-    const newFiles: UploadedFile[] = files.map(file => ({
-      id: Date.now().toString() + Math.random(),
-      file,
-      name: file.name,
-      size: formatFileSize(file.size)
-    }));
-    setUploadedFiles(prev => [...prev, ...newFiles]);
+    
+    const validFiles: UploadedFile[] = [];
+    const errors: string[] = [];
+    
+    files.forEach(file => {
+      const validation = fileService.validateFile(file);
+      if (validation.valid) {
+        validFiles.push({
+          id: Date.now().toString() + Math.random(),
+          file,
+          name: file.name,
+          size: formatFileSize(file.size)
+        });
+      } else {
+        errors.push(`${file.name}: ${validation.error}`);
+      }
+    });
+    
+    if (errors.length > 0) {
+      alert('Some files could not be uploaded:\n' + errors.join('\n'));
+    }
+    
+    setUploadedFiles(prev => [...prev, ...validFiles]);
   };
 
   const removeFile = (fileId: string) => {
@@ -87,13 +202,44 @@ const ChatInterface = () => {
   const sendMessage = async () => {
     if (!input.trim() && uploadedFiles.length === 0) return;
     
-    let chatToUpdate = currentChat;
-    if (!chatToUpdate) {
-      createNewChat();
-      chatToUpdate = chats[0];
+    let targetChatId = currentChatId;
+    
+    // Create new chat if none exists
+    if (!targetChatId) {
+      try {
+        const newChat = await chatService.createChat({ title: input.slice(0, 30) || "New Chat" });
+        const displayChat: DisplayChat = {
+          id: newChat.id,
+          title: newChat.title,
+          messages: [],
+          createdAt: new Date(newChat.createdAt)
+        };
+        setChats(prev => [displayChat, ...prev]);
+        setCurrentChatId(newChat.id);
+        targetChatId = newChat.id;
+      } catch (error) {
+        console.error('Failed to create chat:', error);
+        return;
+      }
     }
 
-    const userMessage: Message = {
+    // Upload files first if any
+    try {
+      if (uploadedFiles.length > 0) {
+        for (const uploadedFile of uploadedFiles) {
+          await fileService.uploadFile(uploadedFile.file, targetChatId);
+        }
+        // Reload chat files after successful upload
+        await loadChatFiles(targetChatId);
+      }
+    } catch (error) {
+      console.error('Failed to upload files:', error);
+      alert('Failed to upload some files. Please try again.');
+      return;
+    }
+
+    // Add user message to UI immediately
+    const userMessage: DisplayMessage = {
       id: Date.now().toString(),
       user: "user",
       text: input || "[Files uploaded]",
@@ -101,40 +247,44 @@ const ChatInterface = () => {
     };
 
     setChats(prev => prev.map(chat => 
-      chat.id === (currentChatId || chats[0]?.id)
-        ? { ...chat, messages: [...chat.messages, userMessage], title: chat.title === "New Chat" ? input.slice(0, 30) + "..." : chat.title }
+      chat.id === targetChatId
+        ? { 
+            ...chat, 
+            messages: [...chat.messages, userMessage],
+            title: chat.title === "New Chat" && input.trim() ? input.slice(0, 30) + "..." : chat.title 
+          }
         : chat
     ));
     
+    const messageContent = input;
     setInput("");
+    setUploadedFiles([]);
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          input,
-          files: uploadedFiles.map(f => f.name),
-        }),
+      // Send message to API
+      const response = await chatService.sendMessage({
+        chatId: targetChatId,
+        content: messageContent || "Please analyze the uploaded files.",
+        messageType: 'user'
       });
 
-      const data = await response.json();
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
+      // The API should return the bot's response
+      const botMessage: DisplayMessage = {
+        id: response.id,
         user: "bot",
-        text: data.answer || "I've received your message and files. How can I help you analyze them?",
-        timestamp: new Date()
+        text: "I've received your message. Let me analyze it for you.",
+        timestamp: new Date(response.createdAt)
       };
 
       setChats(prev => prev.map(chat => 
-        chat.id === (currentChatId || chats[0]?.id)
+        chat.id === targetChatId
           ? { ...chat, messages: [...chat.messages, botMessage] }
           : chat
       ));
     } catch (err) {
-      console.error(err);
-      const errorMessage: Message = {
+      console.error('Failed to send message:', err);
+      const errorMessage: DisplayMessage = {
         id: (Date.now() + 1).toString(),
         user: "bot",
         text: "I'm having trouble processing your request right now. Please try again later.",
@@ -142,7 +292,7 @@ const ChatInterface = () => {
       };
       
       setChats(prev => prev.map(chat => 
-        chat.id === (currentChatId || chats[0]?.id)
+        chat.id === targetChatId
           ? { ...chat, messages: [...chat.messages, errorMessage] }
           : chat
       ));
@@ -152,8 +302,7 @@ const ChatInterface = () => {
   };
 
   const handleLogout = () => {
-    // Implement logout logic here
-    console.log("Logging out...");
+    logout();
   };
 
   return (
@@ -161,31 +310,42 @@ const ChatInterface = () => {
       {/* Sidebar */}
       <div className={`chat-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
         <div className="sidebar-header">
-          <button className="new-chat-btn" onClick={createNewChat}>
+          <button className="new-chat-btn" onClick={() => createNewChat()}>
             <FiPlus /> New Chat
           </button>
         </div>
         
         <div className="chat-history">
-          {chats.map((chat) => (
-            <div 
-              key={chat.id} 
-              className={`chat-item ${currentChatId === chat.id ? 'active' : ''}`}
-              onClick={() => setCurrentChatId(chat.id)}
-            >
-              <FiMessageSquare className="chat-icon" />
-              <span className="chat-title">{chat.title}</span>
-              <button 
-                className="delete-chat-btn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteChat(chat.id);
-                }}
-              >
-                <FiTrash2 />
-              </button>
+          {chatsLoading ? (
+            <div className="loading-chats">
+              <div className="loading-spinner-small"></div>
+              <span>Loading chats...</span>
             </div>
-          ))}
+          ) : chats.length === 0 ? (
+            <div className="no-chats">
+              <p>No chats yet. Start a new conversation!</p>
+            </div>
+          ) : (
+            chats.map((chat) => (
+              <div 
+                key={chat.id} 
+                className={`chat-item ${currentChatId === chat.id ? 'active' : ''}`}
+                onClick={() => setCurrentChatId(chat.id)}
+              >
+                <FiMessageSquare className="chat-icon" />
+                <span className="chat-title">{chat.title}</span>
+                <button 
+                  className="delete-chat-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteChat(chat.id);
+                  }}
+                >
+                  <FiTrash2 />
+                </button>
+              </div>
+            ))
+          )}
         </div>
         
         <div className="sidebar-footer">
@@ -237,6 +397,29 @@ const ChatInterface = () => {
                       >
                         <FiX />
                       </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Chat Files Area */}
+            {chatFiles.length > 0 && (
+              <div className="chat-files-area">
+                <div className="chat-files-header">
+                  <h4>Uploaded Files</h4>
+                </div>
+                <div className="chat-files">
+                  {chatFiles.map((file) => (
+                    <div key={file.id} className="chat-file-item">
+                      <div className="file-info">
+                        <FiPaperclip className="file-icon" />
+                        <div className="file-details">
+                          <span className="file-name">{file.originalName}</span>
+                          <span className="file-size">{formatFileSize(file.size)}</span>
+                          <span className="file-date">{formatDate(file.uploadedAt)}</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -350,9 +533,9 @@ const ChatInterface = () => {
                 <FiUser size={48} />
               </div>
               <div className="profile-info">
-                <h4>John Doe</h4>
-                <p>john.doe@company.com</p>
-                <p>Legal Team</p>
+                <h4>{user?.firstName} {user?.lastName}</h4>
+                <p>{user?.email}</p>
+                {user?.company && <p>{user.company}</p>}
               </div>
               <div className="profile-actions">
                 <button className="secondary-button">Edit Profile</button>

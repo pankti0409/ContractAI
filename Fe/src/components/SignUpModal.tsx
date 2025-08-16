@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiBriefcase, FiX } from 'react-icons/fi';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SignUpModalProps {
   isOpen: boolean;
@@ -8,8 +9,11 @@ interface SignUpModalProps {
 }
 
 const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose, onSwitchToLogin }) => {
+  const { signup } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -27,14 +31,55 @@ const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose, onSwitchToLo
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle signup logic here
+    setIsLoading(true);
+    setError('');
+    
     if (formData.password !== formData.confirmPassword) {
-      alert('Passwords do not match!');
+      setError('Passwords do not match!');
+      setIsLoading(false);
       return;
     }
-    console.log('Signup attempt:', formData);
+    
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      setIsLoading(false);
+      return;
+    }
+    
+    try {
+      const success = await signup({
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        company: formData.company,
+        password: formData.password
+      });
+      
+      if (success) {
+        onClose();
+        // Reset form
+        setFormData({
+          firstName: '',
+          lastName: '',
+          email: '',
+          company: '',
+          password: '',
+          confirmPassword: ''
+        });
+      } else {
+        setError('Failed to create account. Please try again.');
+      }
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        setError('An account with this email already exists. Please use a different email or try logging in.');
+      } else {
+        setError('An error occurred during signup. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -52,6 +97,12 @@ const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose, onSwitchToLo
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
+          {error && (
+            <div className="auth-error">
+              {error}
+            </div>
+          )}
+          
           <div className="input-row">
             <div className="input-group">
               <div className="input-wrapper">
@@ -156,8 +207,8 @@ const SignUpModal: React.FC<SignUpModalProps> = ({ isOpen, onClose, onSwitchToLo
             </div>
           </div>
 
-          <button type="submit" className="auth-button">
-            Create Account
+          <button type="submit" className="auth-button" disabled={isLoading}>
+            {isLoading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 

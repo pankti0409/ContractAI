@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FiEye, FiEyeOff, FiMail, FiLock, FiX } from 'react-icons/fi';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -8,7 +9,10 @@ interface LoginModalProps {
 }
 
 const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSwitchToSignUp }) => {
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -22,10 +26,31 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSwitchToSign
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log('Login attempt:', formData);
+    setIsLoading(true);
+    setError('');
+    
+    try {
+      const success = await login(formData.email, formData.password);
+      if (success) {
+        onClose();
+        // Reset form
+        setFormData({ email: '', password: '' });
+      } else {
+        setError('Invalid email or password. Please try again.');
+      }
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      } else if (err.response?.status === 429) {
+        setError('Too many login attempts. Please wait a moment and try again.');
+      } else {
+        setError('An error occurred during login. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -43,6 +68,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSwitchToSign
         </div>
 
         <form onSubmit={handleSubmit} className="auth-form">
+          {error && (
+            <div className="auth-error">
+              {error}
+            </div>
+          )}
+          
           <div className="input-group">
             <div className="input-wrapper">
               <FiMail className="input-icon" />
@@ -88,8 +119,8 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, onSwitchToSign
             <a href="#" className="forgot-password">Forgot password?</a>
           </div>
 
-          <button type="submit" className="auth-button">
-            Sign In
+          <button type="submit" className="auth-button" disabled={isLoading}>
+            {isLoading ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 

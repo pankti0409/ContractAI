@@ -8,10 +8,24 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
 import SignUpModal from './components/SignUpModal';
+import ChatInterface from './components/ChatInterface';
 
-function App() {
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+function AppContent() {
+  const { isAuthenticated, loading } = useAuth();
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showSignUpModal, setShowSignUpModal] = useState(false);
+
+  // Show loading spinner while auth is being initialized
+  if (loading) {
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
   const handleSwitchToSignUp = () => {
     setShowLoginModal(false);
@@ -23,6 +37,16 @@ function App() {
     setShowLoginModal(true);
   };
 
+  // If user is authenticated, show chat interface
+  if (isAuthenticated) {
+    return (
+      <>
+        <ChatInterface />
+      </>
+    );
+  }
+
+  // Otherwise, show landing page
   return (
     <div className='App'>
       <Home 
@@ -46,8 +70,18 @@ function App() {
         onClose={() => setShowSignUpModal(false)}
         onSwitchToLogin={handleSwitchToLogin}
       />
+      
+
     </div>
   )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 }
 
 export default App
