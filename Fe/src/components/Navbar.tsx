@@ -18,7 +18,12 @@ import PhoneRoundedIcon from "@mui/icons-material/PhoneRounded";
 import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import {Link} from 'react-scroll';
 
-const Navbar = () => {
+interface NavbarProps {
+  setShowLoginModal: (show: boolean) => void;
+  setShowSignUpModal: (show: boolean) => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ setShowLoginModal, setShowSignUpModal }) => {
   const [openMenu, setOpenMenu] = useState(false);
   const menuOptions = [
     {
@@ -65,7 +70,12 @@ const Navbar = () => {
           <Link to="contact" smooth={true} duration={500} offset={-80}>Contact</Link>
         </li>
       </ul>
-      <button className="primary-button">Get Started</button>
+      <button 
+        className="primary-button" 
+        onClick={() => setShowLoginModal(true)}
+      >
+        Get Started
+      </button>
 
       <div className="navbar-menu-container">
         <HiOutlineBars3 onClick={() => setOpenMenu(true)} />
@@ -82,7 +92,9 @@ const Navbar = () => {
               <ListItem key={item.text} disablePadding>
                 <ListItemButton>
                   <ListItemIcon>{item.icon}</ListItemIcon>
-                  <ListItemText primary={item.text} />
+                  <Link to={item.text.toLowerCase()} smooth={true} duration={500} offset={-80}>
+                    <ListItemText primary={item.text} />
+                  </Link>
                 </ListItemButton>
               </ListItem>
             ))}

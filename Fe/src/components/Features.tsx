@@ -21,7 +21,7 @@ const Features = () => {
   ];
 
   return (
-    <section className="features-section">
+    <section id="features" className="features-section">
       <div className="features-container">
         <div className="primary-subheading">Why Choose ContractAI</div>
         <h2 className="primary-heading">Intelligent Solutions for Modern Legal Workflows</h2>

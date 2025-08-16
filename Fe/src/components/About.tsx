@@ -3,9 +3,13 @@ import AboutBackground from "../assets/react.svg";
 import AboutBackgroundImage from "../assets/about.webp";
 import { BsFillPlayCircleFill } from "react-icons/bs";
 
-const About = () => {
+interface AboutProps {
+  setShowSignUpModal: (show: boolean) => void;
+}
+
+const About: React.FC<AboutProps> = ({ setShowSignUpModal }) => {
   return (
-    <div className="about-section-container">
+    <div id="about" className="about-section-container">
       <div className="about-background-image-container">
         <img src={AboutBackground} alt="" />
       </div>
@@ -24,7 +28,7 @@ const About = () => {
           From automated compliance verification to intelligent risk assessment, we empower organizations to make informed decisions faster than ever before.
         </p>
         <div className="about-buttons-container">
-          <button className="secondary-button">Get Started</button>
+          <button className="secondary-button" onClick={() => setShowSignUpModal(true)}>Get Started</button>
           <button className="watch-video-button">
             <BsFillPlayCircleFill /> Watch Video
           </button>
