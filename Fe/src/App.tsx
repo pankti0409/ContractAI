@@ -6,9 +6,11 @@ import Work from './components/Work'
 import Testimonial from './components/Testimonial'
 import Contact from './components/Contact'
 import Footer from './components/Footer'
+import ChatInterface from './components/ChatInterface'
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-function App() {
+// Landing Page Component
+const LandingPage = () => {
   return (
     <div className='App'>
       <section id="home">
@@ -28,6 +30,17 @@ function App() {
       </section>
       <Footer/>
     </div>
+  );
+};
+
+function App() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/chat" element={<ChatInterface />} />
+      </Routes>
+    </Router>
   )
 }
 

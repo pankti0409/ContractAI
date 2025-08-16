@@ -17,6 +17,7 @@ import CommentRoundedIcon from "@mui/icons-material/CommentRounded";
 import PhoneRoundedIcon from "@mui/icons-material/PhoneRounded";
 import ShoppingCartRoundedIcon from "@mui/icons-material/ShoppingCartRounded";
 import {Link} from 'react-scroll';
+import { Link as RouterLink } from "react-router-dom";
 
 const Navbar = () => {
   const [openMenu, setOpenMenu] = useState(false);
@@ -65,7 +66,7 @@ const Navbar = () => {
           <Link to="contact" smooth={true} duration={500} offset={-80}>Contact</Link>
         </li>
       </ul>
-      <button className="primary-button">Get Started</button>
+      <RouterLink to="/chat" className="primary-button">Get Started</RouterLink>
 
       <div className="navbar-menu-container">
         <HiOutlineBars3 onClick={() => setOpenMenu(true)} />
