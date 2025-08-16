@@ -1,0 +1,33 @@
+import './App.css'
+import Home from './components/Home'
+import About from './components/About'
+import Work from './components/Work'
+import Testimonial from './components/Testimonial'
+import Contact from './components/Contact'
+import Footer from './components/Footer'
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+function App() {
+  return (
+    <div className='App'>
+      <section id="home">
+        <Home/>
+      </section>
+      <section id="about">
+        <About/>
+      </section>
+      {/* <section id="testimonials">
+        <Testimonial/>
+      </section> */}
+      <section id="work">
+        <Work/>
+      </section>
+      <section id="contact">
+        <Contact/>
+      </section>
+      <Footer/>
+    </div>
+  )
+}
+
+export default App
