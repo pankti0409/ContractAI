@@ -1,6 +1,7 @@
 import './App.css'
 import Home from './components/Home'
 import About from './components/About'
+import Features from './components/Features'
 import Work from './components/Work'
 import Testimonial from './components/Testimonial'
 import Contact from './components/Contact'
@@ -13,12 +14,12 @@ function App() {
       <section id="home">
         <Home/>
       </section>
+      <section id="features">
+        <Features/>
+      </section>
       <section id="about">
         <About/>
       </section>
-      {/* <section id="testimonials">
-        <Testimonial/>
-      </section> */}
       <section id="work">
         <Work/>
       </section>

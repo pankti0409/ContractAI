@@ -1,7 +1,6 @@
 /* eslint-disable jsx-a11y/anchor-is-valid */
 import React, { useState } from "react";
 import '../App.css'
-import Logo from "../Assets/react.svg";
 import { BsCart2 } from "react-icons/bs";
 import { HiOutlineBars3 } from "react-icons/hi2";
 import Box from "@mui/material/Box";
@@ -27,43 +26,46 @@ const Navbar = () => {
       icon: <HomeIcon />,
     },
     {
+      text: "Features",
+      icon: <InfoIcon />,
+    },
+    {
       text: "About",
       icon: <InfoIcon />,
     },
     {
-      text: "Testimonials",
+      text: "Work",
       icon: <CommentRoundedIcon />,
     },
     {
       text: "Contact",
       icon: <PhoneRoundedIcon />,
     },
-    {
-      text: "Cart",
-      icon: <ShoppingCartRoundedIcon />,
-    },
   ];
 
   return (
     <nav>
-      <div><h1>ContractAI</h1></div>
+      <div className="navbar-brand">
+        <h1>ContractAI</h1>
+      </div>
       <ul className="navbar-links-container">
         <li>
-          <Link to="home" smooth={true} duration={500} offset={-90}>Home</Link>
+          <Link to="home" smooth={true} duration={500} offset={-80}>Home</Link>
         </li>
         <li>
-          <Link to="about" smooth={true} duration={500} offset={-90}>About</Link>
-        </li>
-        {/* <li>
-          <Link to="testimonials" smooth={true} duration={500} offset={-90}>Testimonials</Link>
-        </li> */}
-        <li>
-          <Link to="work" smooth={true} duration={500} offset={-90}>Work</Link>
+          <Link to="features" smooth={true} duration={500} offset={-80}>Features</Link>
         </li>
         <li>
-          <Link to="contact" smooth={true} duration={500} offset={-90}>Contact</Link>
+          <Link to="about" smooth={true} duration={500} offset={-80}>About</Link>
+        </li>
+        <li>
+          <Link to="work" smooth={true} duration={500} offset={-80}>Work</Link>
+        </li>
+        <li>
+          <Link to="contact" smooth={true} duration={500} offset={-80}>Contact</Link>
         </li>
       </ul>
+      <button className="primary-button">Get Started</button>
 
       <div className="navbar-menu-container">
         <HiOutlineBars3 onClick={() => setOpenMenu(true)} />

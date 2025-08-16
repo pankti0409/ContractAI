@@ -1,7 +1,7 @@
 import React from "react";
-import AIPoweredReview from "../Assets/react.svg";
-import RiskAlerts from "../Assets/react.svg";
-import InteractiveDashboard from "../Assets/react.svg";
+import AIPoweredReview from "../assets/react.svg";
+import RiskAlerts from "../assets/react.svg";
+import InteractiveDashboard from "../assets/react.svg";
 
 const Work = () => {
   const workInfoData = [
@@ -24,10 +24,9 @@ const Work = () => {
   return (
     <div className="work-section-wrapper">
       <div className="work-section-top">
-        <p className="primary-subheading">Work</p>
-        <h1 className="primary-heading">How It Works</h1>
-        <p className="primary-text">Users securely upload contracts or legal documents to
-          the platform through the responsive web app.
+        <p className="primary-subheading">Process</p>
+        <h1 className="primary-heading">Streamlined Contract Intelligence</h1>
+        <p className="primary-text">Experience seamless contract analysis through our intuitive three-step process designed for modern legal teams.
         </p>
       </div>
       <div className="work-section-bottom">
