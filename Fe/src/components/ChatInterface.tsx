@@ -11,6 +11,11 @@ interface DisplayMessage {
   user: "user" | "bot";
   text: string;
   timestamp: Date;
+  files?: {
+    name: string;
+    size: number;
+    type: string;
+  }[];
 }
 
 interface DisplayChat {
@@ -39,17 +44,31 @@ interface ChatFile {
 const ChatInterface = () => {
   const { user, logout } = useAuth();
   const [chats, setChats] = useState<DisplayChat[]>([]);
-  const [currentChatId, setCurrentChatId] = useState<string | null>(null);
-  const [input, setInput] = useState("");
+  const [currentChatId, setCurrentChatId] = useState<string | null>(() => {
+    // Restore current chat ID from localStorage
+    const restored = localStorage.getItem('currentChatId');
+    console.log('Restoring currentChatId from localStorage:', restored);
+    return restored;
+  });
+  const [input, setInput] = useState(() => {
+    // Restore input text from localStorage
+    const restored = localStorage.getItem('chatInput') || "";
+    console.log('Restoring chatInput from localStorage:', restored);
+    return restored;
+  });
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [chatFiles, setChatFiles] = useState<ChatFile[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showProfile, setShowProfile] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [chatsLoading, setChatsLoading] = useState(true);
+  const [selectedDocument, setSelectedDocument] = useState<ChatFile | null>(null);
+  const [documentContent, setDocumentContent] = useState<string>('');
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const previousChatIdRef = useRef<string | null>(null);
 
   const currentChat = chats.find(chat => chat.id === currentChatId);
 
@@ -61,30 +80,122 @@ const ChatInterface = () => {
   // Load messages and files when current chat changes
   useEffect(() => {
     if (currentChatId) {
-      loadChatMessages(currentChatId);
-      loadChatFiles(currentChatId);
+      // Check if files are cached first
+      const cachedFiles = localStorage.getItem(`chatFiles_${currentChatId}`);
+      if (cachedFiles) {
+        const files = JSON.parse(cachedFiles);
+        console.log('Restored cached files from useEffect for chat:', currentChatId, files.length);
+        setChatFiles(files);
+      } else {
+        loadChatFiles(currentChatId);
+      }
+      
+      // Messages are already loaded during loadChats, only load if not cached
+      const currentChatData = chats.find(chat => chat.id === currentChatId);
+      if (!currentChatData || currentChatData.messages.length === 0) {
+        loadChatMessages(currentChatId);
+      }
     } else {
       setChatFiles([]);
     }
-  }, [currentChatId]);
+    // Clear uploaded files when switching chats (they're chat-specific)
+    setUploadedFiles([]);
+  }, [currentChatId, chats]);
+
+  // Clear input when manually switching between chats (not on initial load)
+  useEffect(() => {
+    // Only clear input if chats are loaded and we're switching to a different chat
+    if (chats.length > 0 && currentChatId && !chatsLoading) {
+      // Check if this is a manual chat switch (previous chat was different)
+      if (previousChatIdRef.current && previousChatIdRef.current !== currentChatId) {
+        setInput("");
+      }
+      // Update the previous chat ID reference
+      previousChatIdRef.current = currentChatId;
+    }
+  }, [currentChatId, chats.length, chatsLoading]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentChat?.messages]);
 
+  // Persist current chat ID to localStorage for session continuity
+  useEffect(() => {
+    if (currentChatId) {
+      localStorage.setItem('currentChatId', currentChatId);
+      console.log('Saved currentChatId to localStorage:', currentChatId);
+    } else {
+      localStorage.removeItem('currentChatId');
+      console.log('Removed currentChatId from localStorage');
+    }
+  }, [currentChatId]);
+
+  // Persist input text to localStorage to retain drafts across page refreshes
+  useEffect(() => {
+    if (input.trim()) {
+      localStorage.setItem('chatInput', input);
+      console.log('Saved chatInput to localStorage:', input);
+    } else {
+      localStorage.removeItem('chatInput');
+      console.log('Removed chatInput from localStorage');
+    }
+  }, [input]);
+
+  // Clear persisted data when user logs out
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // Keep the data when page is refreshed, but clear on actual navigation away
+      // This is handled by the logout function
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
+
   const loadChats = async () => {
     try {
       setChatsLoading(true);
       const apiChats = await chatService.getChats();
-      const displayChats: DisplayChat[] = apiChats.map(chat => ({
-        id: chat.id,
-        title: chat.title,
-        messages: [],
-        createdAt: new Date(chat.createdAt)
-      }));
+      const displayChats: DisplayChat[] = apiChats.map(chat => {
+        // Check if messages are cached for this chat
+        const cachedMessages = localStorage.getItem(`chatMessages_${chat.id}`);
+        let messages: DisplayMessage[] = [];
+        
+        if (cachedMessages) {
+          messages = JSON.parse(cachedMessages).map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+          console.log('Restored cached messages during loadChats for chat:', chat.id, messages.length);
+        }
+        
+        return {
+          id: chat.id,
+          title: chat.title,
+          messages: messages,
+          createdAt: new Date(chat.createdAt)
+        };
+      });
       setChats(displayChats);
-      if (displayChats.length > 0 && !currentChatId) {
+      
+      // Validate restored currentChatId against loaded chats
+      const restoredChatId = localStorage.getItem('currentChatId');
+      console.log('Validating restored chat ID:', restoredChatId, 'against loaded chats:', displayChats.map(c => c.id));
+      if (restoredChatId && displayChats.some(chat => chat.id === restoredChatId)) {
+        // Restored chat ID is valid, keep it
+        console.log('Restored chat ID is valid, keeping it');
+        if (currentChatId !== restoredChatId) {
+          setCurrentChatId(restoredChatId);
+        }
+      } else if (displayChats.length > 0 && !currentChatId) {
+        // No valid restored chat or no current chat, select first available
+        console.log('No valid restored chat, selecting first available:', displayChats[0].id);
         setCurrentChatId(displayChats[0].id);
+      } else if (restoredChatId && !displayChats.some(chat => chat.id === restoredChatId)) {
+        // Restored chat ID is invalid (chat was deleted), clear it
+        console.log('Restored chat ID is invalid, clearing and selecting new one');
+        localStorage.removeItem('currentChatId');
+        setCurrentChatId(displayChats.length > 0 ? displayChats[0].id : null);
       }
     } catch (error) {
       console.error('Failed to load chats:', error);
@@ -95,6 +206,22 @@ const ChatInterface = () => {
 
   const loadChatMessages = async (chatId: string) => {
     try {
+      // Check if messages are already cached in localStorage
+      const cachedMessages = localStorage.getItem(`chatMessages_${chatId}`);
+      if (cachedMessages) {
+        const displayMessages = JSON.parse(cachedMessages).map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+        console.log('Restored cached messages for chat:', chatId, displayMessages.length);
+        setChats(prev => prev.map(chat => 
+          chat.id === chatId 
+            ? { ...chat, messages: displayMessages }
+            : chat
+        ));
+        return;
+      }
+
       const { messages } = await chatService.getChatById(chatId);
       const displayMessages: DisplayMessage[] = messages.map(msg => ({
         id: msg.id,
@@ -102,6 +229,10 @@ const ChatInterface = () => {
         text: msg.content,
         timestamp: new Date(msg.createdAt)
       }));
+      
+      // Cache messages in localStorage
+      localStorage.setItem(`chatMessages_${chatId}`, JSON.stringify(displayMessages));
+      console.log('Cached messages for chat:', chatId, displayMessages.length);
       
       setChats(prev => prev.map(chat => 
         chat.id === chatId 
@@ -115,7 +246,21 @@ const ChatInterface = () => {
 
   const loadChatFiles = async (chatId: string) => {
     try {
+      // Check if files are already cached in localStorage
+      const cachedFiles = localStorage.getItem(`chatFiles_${chatId}`);
+      if (cachedFiles) {
+        const files = JSON.parse(cachedFiles);
+        console.log('Restored cached files for chat:', chatId, files.length);
+        setChatFiles(files);
+        return;
+      }
+
       const files = await fileService.getChatFiles(chatId);
+      
+      // Cache files in localStorage
+      localStorage.setItem(`chatFiles_${chatId}`, JSON.stringify(files));
+      console.log('Cached files for chat:', chatId, files.length);
+      
       setChatFiles(files);
     } catch (error) {
       console.error('Failed to load chat files:', error);
@@ -149,6 +294,8 @@ const ChatInterface = () => {
       setCurrentChatId(newChat.id);
       setUploadedFiles([]);
       setChatFiles([]);
+      // Clear input when creating new chat
+      setInput("");
     } catch (error) {
        console.error('Failed to create new chat:', error);
      }
@@ -158,6 +305,12 @@ const ChatInterface = () => {
     try {
       await chatService.deleteChat(chatId);
       setChats(prev => prev.filter(chat => chat.id !== chatId));
+      
+      // Clear cached data for the deleted chat
+      localStorage.removeItem(`chatMessages_${chatId}`);
+      localStorage.removeItem(`chatFiles_${chatId}`);
+      console.log('Cleared cached data for deleted chat:', chatId);
+      
       if (currentChatId === chatId) {
         const remainingChats = chats.filter(chat => chat.id !== chatId);
         setCurrentChatId(remainingChats.length > 0 ? remainingChats[0].id : null);
@@ -238,12 +391,16 @@ const ChatInterface = () => {
       return;
     }
 
-    // Add user message to UI immediately
     const userMessage: DisplayMessage = {
       id: Date.now().toString(),
       user: "user",
-      text: input || "[Files uploaded]",
-      timestamp: new Date()
+      text: input || "",
+      timestamp: new Date(),
+      files: uploadedFiles.length > 0 ? uploadedFiles.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type
+      })) : undefined
     };
 
     setChats(prev => prev.map(chat => 
@@ -255,6 +412,12 @@ const ChatInterface = () => {
           }
         : chat
     ));
+    
+    // Update cached messages with the new user message
+    const currentMessages = JSON.parse(localStorage.getItem(`chatMessages_${targetChatId}`) || '[]');
+    const updatedMessages = [...currentMessages, userMessage];
+    localStorage.setItem(`chatMessages_${targetChatId}`, JSON.stringify(updatedMessages));
+    console.log('Updated cached messages with user message for chat:', targetChatId);
     
     const messageContent = input;
     setInput("");
@@ -282,6 +445,12 @@ const ChatInterface = () => {
           ? { ...chat, messages: [...chat.messages, botMessage] }
           : chat
       ));
+      
+      // Update cached messages with the bot response
+      const currentMessages = JSON.parse(localStorage.getItem(`chatMessages_${targetChatId}`) || '[]');
+      const updatedMessages = [...currentMessages, botMessage];
+      localStorage.setItem(`chatMessages_${targetChatId}`, JSON.stringify(updatedMessages));
+      console.log('Updated cached messages with bot response for chat:', targetChatId);
     } catch (err) {
       console.error('Failed to send message:', err);
       const errorMessage: DisplayMessage = {
@@ -296,22 +465,43 @@ const ChatInterface = () => {
           ? { ...chat, messages: [...chat.messages, errorMessage] }
           : chat
       ));
+      
+      // Update cached messages with the error message
+      const currentMessages = JSON.parse(localStorage.getItem(`chatMessages_${targetChatId}`) || '[]');
+      const updatedMessages = [...currentMessages, errorMessage];
+      localStorage.setItem(`chatMessages_${targetChatId}`, JSON.stringify(updatedMessages));
+      console.log('Updated cached messages with error message for chat:', targetChatId);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleLogout = () => {
+    // Keep chat data persistent across login sessions
+    // Only authentication data will be cleared by the logout function
     logout();
+  };
+
+  const handleDocumentClick = async (file: ChatFile) => {
+    try {
+      setSelectedDocument(file);
+      setShowDocumentModal(true);
+      // In a real implementation, you would fetch the document content
+      // const content = await fileService.getFileContent(file.id);
+      // setDocumentContent(content);
+      setDocumentContent('Document preview functionality would be implemented here.');
+    } catch (error) {
+      console.error('Failed to load document:', error);
+    }
   };
 
   return (
     <div className="chat-interface">
-      {/* Sidebar */}
-      <div className={`chat-sidebar ${sidebarOpen ? 'open' : 'closed'}`}>
+      {/* Chat Sidebar */}
+      <div className={`chat-sidebar ${sidebarOpen ? 'open' : ''}`}>
         <div className="sidebar-header">
-          <button className="new-chat-btn" onClick={() => createNewChat()}>
-            <FiPlus /> New Chat
+          <button className="new-chat-btn" onClick={createNewChat}>
+            <FiPlus /> New chat
           </button>
         </div>
         
@@ -349,17 +539,7 @@ const ChatInterface = () => {
         </div>
         
         <div className="sidebar-footer">
-          <div className="user-profile">
-            <button 
-              className="profile-btn"
-              onClick={() => setShowProfile(!showProfile)}
-            >
-              <FiUser /> Profile
-            </button>
-            <button className="logout-btn" onClick={handleLogout}>
-              <FiLogOut /> Logout
-            </button>
-          </div>
+          {/* Profile and logout moved to header */}
         </div>
       </div>
 
@@ -370,64 +550,35 @@ const ChatInterface = () => {
             {/* Chat Header */}
             <div className="chat-header">
               <h2 className="chat-title-header">{currentChat.title}</h2>
-              <button 
-                className="sidebar-toggle"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-              >
-                <FiMessageSquare />
-              </button>
+              <div className="header-actions">
+                <div className="user-bubble">
+                  <button 
+                    className="profile-bubble-btn"
+                    onClick={() => setShowProfile(!showProfile)}
+                  >
+                    <FiUser />
+                  </button>
+                  <button 
+                    className="logout-bubble-btn" 
+                    onClick={handleLogout}
+                  >
+                    <FiLogOut />
+                  </button>
+                </div>
+                <button 
+                  className="sidebar-toggle"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                >
+                  <FiMessageSquare />
+                </button>
+              </div>
             </div>
 
-            {/* File Upload Area */}
-            {uploadedFiles.length > 0 && (
-              <div className="file-upload-area">
-                <div className="uploaded-files">
-                  {uploadedFiles.map((file) => (
-                    <div key={file.id} className="file-item">
-                      <div className="file-info">
-                        <FiPaperclip className="file-icon" />
-                        <div className="file-details">
-                          <span className="file-name">{file.name}</span>
-                          <span className="file-size">{file.size}</span>
-                        </div>
-                      </div>
-                      <button 
-                        className="remove-file-btn"
-                        onClick={() => removeFile(file.id)}
-                      >
-                        <FiX />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            {/* Chat Files Area */}
-            {chatFiles.length > 0 && (
-              <div className="chat-files-area">
-                <div className="chat-files-header">
-                  <h4>Uploaded Files</h4>
-                </div>
-                <div className="chat-files">
-                  {chatFiles.map((file) => (
-                    <div key={file.id} className="chat-file-item">
-                      <div className="file-info">
-                        <FiPaperclip className="file-icon" />
-                        <div className="file-details">
-                          <span className="file-name">{file.originalName}</span>
-                          <span className="file-size">{formatFileSize(file.size)}</span>
-                          <span className="file-date">{formatDate(file.uploadedAt)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Messages Area */}
             <div className="messages-container">
+
               {currentChat.messages.length === 0 ? (
                 <div className="empty-chat">
                   <div className="empty-chat-content">
@@ -443,11 +594,23 @@ const ChatInterface = () => {
                         {message.user === 'user' ? <FiUser /> : '🤖'}
                       </div>
                       <div className="message-text">
-                        {message.text}
+                        {message.text && <div className="message-text-content">{message.text}</div>}
+                        {message.files && message.files.length > 0 && (
+                          <div className="message-files">
+                            {message.files.map((file, index) => (
+                              <div key={index} className="file-card">
+                                <div className="file-icon">
+                                  <FiPaperclip />
+                                </div>
+                                <div className="file-details">
+                                   <div className="file-name">{file.name}</div>
+                                   <div className="file-type">{file.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
+                                 </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                    <div className="message-timestamp">
-                      {message.timestamp.toLocaleTimeString()}
                     </div>
                   </div>
                 ))
@@ -469,9 +632,73 @@ const ChatInterface = () => {
               <div ref={chatEndRef} />
             </div>
 
+            {/* File Upload Area - Show when there are uploaded files */}
+            {uploadedFiles.length > 0 && (
+              <div className="file-upload-area">
+                <div className="upload-header">
+                  <h4>Ready to Upload</h4>
+                  <span className="upload-count">{uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="uploaded-files">
+                  {uploadedFiles.map((file) => (
+                    <div key={file.id} className="uploaded-file-item">
+                      <div className="file-icon-container">
+                        <FiPaperclip className="file-type-icon" />
+                      </div>
+                      <div className="file-info">
+                        <span className="file-name">{file.name}</span>
+                        <div className="file-meta">
+                          <span className="file-size">{file.size}</span>
+                          <span className="file-separator">•</span>
+                          <span className="file-status">Ready to send</span>
+                        </div>
+                      </div>
+                      <button 
+                        className="remove-file-btn"
+                        onClick={() => removeFile(file.id)}
+                        title="Remove file"
+                      >
+                        <FiX />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ready to Upload Area */}
+            {uploadedFiles.length > 0 && (
+              <div className="ready-to-upload-area">
+                <div className="upload-header">
+                  <span className="upload-label">Ready to upload</span>
+                  <span className="upload-count">{uploadedFiles.length} file{uploadedFiles.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="uploaded-files-list">
+                  {uploadedFiles.map((file) => (
+                    <div key={file.id} className="uploaded-file-card">
+                      <div className="file-icon">
+                        <FiPaperclip />
+                      </div>
+                      <div className="file-details">
+                        <span className="file-name">{file.name}</span>
+                        <span className="file-type">{file.name.split('.').pop()?.toUpperCase()}</span>
+                      </div>
+                      <button 
+                        className="remove-file-btn"
+                        onClick={() => removeFile(file.id)}
+                        title="Remove file"
+                      >
+                        <FiX />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Input Area */}
-            <div className="chat-input-area">
-              <div className="input-container">
+            <div className="chat-input-container">
+              <div className="chat-input-wrapper">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -480,23 +707,26 @@ const ChatInterface = () => {
                   className="file-input-hidden"
                   accept=".pdf,.doc,.docx,.txt"
                 />
-                <button 
-                  className="file-upload-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <FiPaperclip />
-                </button>
+                <div className="input-actions">
+                  <button 
+                    className="file-upload-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Upload files"
+                  >
+                    <FiPaperclip />
+                  </button>
+                </div>
                 <input
                   type="text"
-                  placeholder="Ask about your contracts..."
-                  className="message-input"
+                  placeholder="Ask about your documents..."
+                  className="chat-input"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()}
                   disabled={isLoading}
                 />
                 <button 
-                  className="send-btn"
+                  className="send-button"
                   onClick={sendMessage}
                   disabled={isLoading || (!input.trim() && uploadedFiles.length === 0)}
                 >
@@ -540,6 +770,30 @@ const ChatInterface = () => {
               <div className="profile-actions">
                 <button className="secondary-button">Edit Profile</button>
                 <button className="secondary-button">Settings</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Preview Modal */}
+      {showDocumentModal && selectedDocument && (
+        <div className="document-modal-overlay" onClick={() => setShowDocumentModal(false)}>
+          <div className="document-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="document-modal-header">
+              <h3>{selectedDocument.originalName}</h3>
+              <button onClick={() => setShowDocumentModal(false)}>
+                <FiX />
+              </button>
+            </div>
+            <div className="document-modal-content">
+              <div className="document-info">
+                <p><strong>Size:</strong> {formatFileSize(selectedDocument.size)}</p>
+                <p><strong>Type:</strong> {selectedDocument.mimeType}</p>
+                <p><strong>Uploaded:</strong> {formatDate(selectedDocument.uploadedAt)}</p>
+              </div>
+              <div className="document-preview">
+                <p>{documentContent}</p>
               </div>
             </div>
           </div>

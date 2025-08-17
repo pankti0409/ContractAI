@@ -1,12 +1,13 @@
-import bcrypt from 'bcryptjs';
-
-const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12');
+import crypto from 'crypto';
 
 export const hashPassword = async (password: string): Promise<string> => {
   try {
-    const salt = await bcrypt.genSalt(SALT_ROUNDS);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    return hashedPassword;
+    // Generate a random salt
+    const salt = crypto.randomBytes(16).toString('hex');
+    // Hash password with salt using pbkdf2
+    const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+    // Return salt and hash combined
+    return `${salt}:${hash}`;
   } catch (error) {
     throw new Error('Password hashing failed');
   }
@@ -14,8 +15,22 @@ export const hashPassword = async (password: string): Promise<string> => {
 
 export const comparePassword = async (password: string, hashedPassword: string): Promise<boolean> => {
   try {
-    const isMatch = await bcrypt.compare(password, hashedPassword);
-    return isMatch;
+    // Check if it's the new crypto format (contains ':')
+    if (hashedPassword.includes(':')) {
+      // New crypto format
+      const [salt, hash] = hashedPassword.split(':');
+      if (!salt || !hash) {
+        return false;
+      }
+      // Hash the provided password with the same salt
+      const hashToCompare = crypto.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+      // Compare hashes
+      return hash === hashToCompare;
+    } else {
+      // Legacy bcrypt format - use simple string comparison for now
+      // In production, you might want to gradually migrate users to new format
+      return false; // Force users to reset password if using old format
+    }
   } catch (error) {
     throw new Error('Password comparison failed');
   }

@@ -4,13 +4,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.validatePasswordStrength = exports.comparePassword = exports.hashPassword = void 0;
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
-const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12');
+const crypto_1 = __importDefault(require("crypto"));
 const hashPassword = async (password) => {
     try {
-        const salt = await bcryptjs_1.default.genSalt(SALT_ROUNDS);
-        const hashedPassword = await bcryptjs_1.default.hash(password, salt);
-        return hashedPassword;
+        const salt = crypto_1.default.randomBytes(16).toString('hex');
+        const hash = crypto_1.default.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+        return `${salt}:${hash}`;
     }
     catch (error) {
         throw new Error('Password hashing failed');
@@ -19,8 +18,12 @@ const hashPassword = async (password) => {
 exports.hashPassword = hashPassword;
 const comparePassword = async (password, hashedPassword) => {
     try {
-        const isMatch = await bcryptjs_1.default.compare(password, hashedPassword);
-        return isMatch;
+        const [salt, hash] = hashedPassword.split(':');
+        if (!salt || !hash) {
+            return false;
+        }
+        const hashToCompare = crypto_1.default.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+        return hash === hashToCompare;
     }
     catch (error) {
         throw new Error('Password comparison failed');
