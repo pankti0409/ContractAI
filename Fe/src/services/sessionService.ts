@@ -1,4 +1,4 @@
-import { clearAuthDataAndNotify } from '../utils/authUtils';
+import { clearAuthDataOnlyAndNotify } from '../utils/authUtils';
 
 class SessionService {
   private static readonly SESSION_KEY = 'serverSessionId';
@@ -39,8 +39,8 @@ class SessionService {
 
       if (!isValid) {
         // Server has restarted - clear auth data and update session ID
-        console.log('Server restart detected - clearing authentication data');
-        clearAuthDataAndNotify();
+        console.log('Server restart detected - clearing authentication data (preserving chat data)');
+        clearAuthDataOnlyAndNotify();
         localStorage.setItem(SessionService.SESSION_KEY, sessionId);
         return false;
       }
@@ -48,8 +48,8 @@ class SessionService {
       return true;
     } catch (error) {
       console.error('Session validation failed:', error);
-      // On error, assume session is invalid and clear auth data
-      clearAuthDataAndNotify();
+      // On error, assume session is invalid and clear auth data (preserve chat data)
+      clearAuthDataOnlyAndNotify();
       return false;
     }
   }

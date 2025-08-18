@@ -15,6 +15,11 @@ export interface Message {
   createdAt: string;
 }
 
+export interface MessageResponse {
+  userMessage: Message;
+  aiResponse: Message;
+}
+
 export interface CreateChatData {
   title: string;
 }
@@ -45,7 +50,7 @@ class ChatService {
     };
   }
 
-  async sendMessage(data: SendMessageData): Promise<Message> {
+  async sendMessage(data: SendMessageData): Promise<MessageResponse> {
     const response = await api.post(`/chats/${data.chatId}/messages`, {
       content: data.content,
       messageType: data.messageType

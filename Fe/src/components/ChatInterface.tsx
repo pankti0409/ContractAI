@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { FiPlus, FiMessageSquare, FiUser, FiLogOut, FiUpload, FiX, FiSend, FiPaperclip, FiTrash2 } from "react-icons/fi";
 import { useAuth } from '../contexts/AuthContext';
 import chatService from '../services/chatService';
-import type { Chat, Message } from '../services/chatService';
+import type { Chat, Message, MessageResponse } from '../services/chatService';
 import fileService from '../services/fileService';
 import type { FileUpload } from '../services/fileService';
 
@@ -70,6 +70,7 @@ const ChatInterface = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previousChatIdRef = useRef<string | null>(null);
 
+
   const currentChat = chats.find(chat => chat.id === currentChatId);
 
   // Load chats on component mount
@@ -79,28 +80,19 @@ const ChatInterface = () => {
 
   // Load messages and files when current chat changes
   useEffect(() => {
-    if (currentChatId) {
-      // Check if files are cached first
-      const cachedFiles = localStorage.getItem(`chatFiles_${currentChatId}`);
-      if (cachedFiles) {
-        const files = JSON.parse(cachedFiles);
-        console.log('Restored cached files from useEffect for chat:', currentChatId, files.length);
-        setChatFiles(files);
-      } else {
-        loadChatFiles(currentChatId);
-      }
-      
-      // Messages are already loaded during loadChats, only load if not cached
-      const currentChatData = chats.find(chat => chat.id === currentChatId);
-      if (!currentChatData || currentChatData.messages.length === 0) {
-        loadChatMessages(currentChatId);
-      }
-    } else {
+    if (!currentChatId) {
       setChatFiles([]);
+      setUploadedFiles([]);
+      return;
     }
+    
     // Clear uploaded files when switching chats (they're chat-specific)
     setUploadedFiles([]);
-  }, [currentChatId, chats]);
+    
+    // Always load fresh data from server for cross-device consistency
+    loadChatFiles(currentChatId);
+    loadChatMessages(currentChatId);
+  }, [currentChatId]);
 
   // Clear input when manually switching between chats (not on initial load)
   useEffect(() => {
@@ -130,6 +122,87 @@ const ChatInterface = () => {
     }
   }, [currentChatId]);
 
+  // Clear chat data when user changes (login/logout)
+  useEffect(() => {
+    if (user) {
+      // User logged in, reload chats for the new user
+      loadChats();
+    } else {
+      // User logged out, clear all chat data
+      setChats([]);
+      setCurrentChatId(null);
+      setChatFiles([]);
+      setUploadedFiles([]);
+      console.log('Cleared chat data due to user logout');
+    }
+  }, [user]);
+
+  // Real-time synchronization - poll for updates every 10 seconds for better responsiveness
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('🔄 Starting real-time sync for user:', user.email);
+    
+    const syncInterval = setInterval(async () => {
+      try {
+        console.log('🔄 Syncing data from server...');
+        
+        // Refresh chat list to catch new chats or title changes
+        const apiChats = await chatService.getChats();
+        const displayChats: DisplayChat[] = apiChats.map(chat => ({
+          id: chat.id,
+          title: chat.title,
+          messages: chats.find(c => c.id === chat.id)?.messages || [],
+          createdAt: new Date(chat.createdAt)
+        }));
+        
+        // Only update if there are actual changes
+        const hasChanges = displayChats.length !== chats.length || 
+          displayChats.some(newChat => {
+            const existingChat = chats.find(c => c.id === newChat.id);
+            return !existingChat || existingChat.title !== newChat.title;
+          });
+        
+        if (hasChanges) {
+          setChats(displayChats);
+          console.log('✅ Synchronized chat list from server - found', displayChats.length, 'chats');
+        }
+        
+        // Refresh current chat messages if viewing a chat
+        if (currentChatId) {
+          const { messages } = await chatService.getChatById(currentChatId);
+          const displayMessages: DisplayMessage[] = messages.map(msg => ({
+            id: msg.id,
+            user: msg.messageType === 'user' ? 'user' : 'bot',
+            text: msg.content,
+            timestamp: new Date(msg.createdAt)
+          }));
+          
+          // Only update if message count changed
+          const currentMessages = chats.find(c => c.id === currentChatId)?.messages || [];
+          if (displayMessages.length !== currentMessages.length) {
+            setChats(prev => prev.map(chat => 
+              chat.id === currentChatId 
+                ? { ...chat, messages: displayMessages }
+                : chat
+            ));
+            console.log('✅ Synchronized messages for current chat from server - found', displayMessages.length, 'messages');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Failed to sync data from server:', error);
+        if (error.response?.status === 401) {
+          console.log('🔐 Authentication error - user may need to log in again');
+        }
+      }
+    }, 10000); // Poll every 10 seconds for better responsiveness
+
+    return () => {
+      console.log('🛑 Stopping real-time sync');
+      clearInterval(syncInterval);
+    };
+  }, [user, currentChatId, chats]);
+
   // Persist input text to localStorage to retain drafts across page refreshes
   useEffect(() => {
     if (input.trim()) {
@@ -156,26 +229,12 @@ const ChatInterface = () => {
     try {
       setChatsLoading(true);
       const apiChats = await chatService.getChats();
-      const displayChats: DisplayChat[] = apiChats.map(chat => {
-        // Check if messages are cached for this chat
-        const cachedMessages = localStorage.getItem(`chatMessages_${chat.id}`);
-        let messages: DisplayMessage[] = [];
-        
-        if (cachedMessages) {
-          messages = JSON.parse(cachedMessages).map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp)
-          }));
-          console.log('Restored cached messages during loadChats for chat:', chat.id, messages.length);
-        }
-        
-        return {
-          id: chat.id,
-          title: chat.title,
-          messages: messages,
-          createdAt: new Date(chat.createdAt)
-        };
-      });
+      const displayChats: DisplayChat[] = apiChats.map(chat => ({
+        id: chat.id,
+        title: chat.title,
+        messages: [], // Messages will be loaded separately when needed
+        createdAt: new Date(chat.createdAt)
+      }));
       setChats(displayChats);
       
       // Validate restored currentChatId against loaded chats
@@ -206,22 +265,6 @@ const ChatInterface = () => {
 
   const loadChatMessages = async (chatId: string) => {
     try {
-      // Check if messages are already cached in localStorage
-      const cachedMessages = localStorage.getItem(`chatMessages_${chatId}`);
-      if (cachedMessages) {
-        const displayMessages = JSON.parse(cachedMessages).map((msg: any) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        }));
-        console.log('Restored cached messages for chat:', chatId, displayMessages.length);
-        setChats(prev => prev.map(chat => 
-          chat.id === chatId 
-            ? { ...chat, messages: displayMessages }
-            : chat
-        ));
-        return;
-      }
-
       const { messages } = await chatService.getChatById(chatId);
       const displayMessages: DisplayMessage[] = messages.map(msg => ({
         id: msg.id,
@@ -230,9 +273,7 @@ const ChatInterface = () => {
         timestamp: new Date(msg.createdAt)
       }));
       
-      // Cache messages in localStorage
-      localStorage.setItem(`chatMessages_${chatId}`, JSON.stringify(displayMessages));
-      console.log('Cached messages for chat:', chatId, displayMessages.length);
+      console.log('Loaded fresh messages from server for chat:', chatId, displayMessages.length);
       
       setChats(prev => prev.map(chat => 
         chat.id === chatId 
@@ -246,21 +287,8 @@ const ChatInterface = () => {
 
   const loadChatFiles = async (chatId: string) => {
     try {
-      // Check if files are already cached in localStorage
-      const cachedFiles = localStorage.getItem(`chatFiles_${chatId}`);
-      if (cachedFiles) {
-        const files = JSON.parse(cachedFiles);
-        console.log('Restored cached files for chat:', chatId, files.length);
-        setChatFiles(files);
-        return;
-      }
-
       const files = await fileService.getChatFiles(chatId);
-      
-      // Cache files in localStorage
-      localStorage.setItem(`chatFiles_${chatId}`, JSON.stringify(files));
-      console.log('Cached files for chat:', chatId, files.length);
-      
+      console.log('Loaded fresh files from server for chat:', chatId, files.length);
       setChatFiles(files);
     } catch (error) {
       console.error('Failed to load chat files:', error);
@@ -306,10 +334,7 @@ const ChatInterface = () => {
       await chatService.deleteChat(chatId);
       setChats(prev => prev.filter(chat => chat.id !== chatId));
       
-      // Clear cached data for the deleted chat
-      localStorage.removeItem(`chatMessages_${chatId}`);
-      localStorage.removeItem(`chatFiles_${chatId}`);
-      console.log('Cleared cached data for deleted chat:', chatId);
+      console.log('Deleted chat:', chatId);
       
       if (currentChatId === chatId) {
         const remainingChats = chats.filter(chat => chat.id !== chatId);
@@ -413,12 +438,6 @@ const ChatInterface = () => {
         : chat
     ));
     
-    // Update cached messages with the new user message
-    const currentMessages = JSON.parse(localStorage.getItem(`chatMessages_${targetChatId}`) || '[]');
-    const updatedMessages = [...currentMessages, userMessage];
-    localStorage.setItem(`chatMessages_${targetChatId}`, JSON.stringify(updatedMessages));
-    console.log('Updated cached messages with user message for chat:', targetChatId);
-    
     const messageContent = input;
     setInput("");
     setUploadedFiles([]);
@@ -432,12 +451,12 @@ const ChatInterface = () => {
         messageType: 'user'
       });
 
-      // The API should return the bot's response
+      // The API returns both userMessage and aiResponse
       const botMessage: DisplayMessage = {
-        id: response.id,
+        id: response.aiResponse.id,
         user: "bot",
-        text: "I've received your message. Let me analyze it for you.",
-        timestamp: new Date(response.createdAt)
+        text: response.aiResponse.content,
+        timestamp: new Date(response.aiResponse.createdAt)
       };
 
       setChats(prev => prev.map(chat => 
@@ -445,12 +464,6 @@ const ChatInterface = () => {
           ? { ...chat, messages: [...chat.messages, botMessage] }
           : chat
       ));
-      
-      // Update cached messages with the bot response
-      const currentMessages = JSON.parse(localStorage.getItem(`chatMessages_${targetChatId}`) || '[]');
-      const updatedMessages = [...currentMessages, botMessage];
-      localStorage.setItem(`chatMessages_${targetChatId}`, JSON.stringify(updatedMessages));
-      console.log('Updated cached messages with bot response for chat:', targetChatId);
     } catch (err) {
       console.error('Failed to send message:', err);
       const errorMessage: DisplayMessage = {
@@ -465,12 +478,6 @@ const ChatInterface = () => {
           ? { ...chat, messages: [...chat.messages, errorMessage] }
           : chat
       ));
-      
-      // Update cached messages with the error message
-      const currentMessages = JSON.parse(localStorage.getItem(`chatMessages_${targetChatId}`) || '[]');
-      const updatedMessages = [...currentMessages, errorMessage];
-      localStorage.setItem(`chatMessages_${targetChatId}`, JSON.stringify(updatedMessages));
-      console.log('Updated cached messages with error message for chat:', targetChatId);
     } finally {
       setIsLoading(false);
     }
@@ -551,6 +558,10 @@ const ChatInterface = () => {
             <div className="chat-header">
               <h2 className="chat-title-header">{currentChat.title}</h2>
               <div className="header-actions">
+                <div className="sync-status">
+                  <span className="sync-indicator">🔄 Sync Active</span>
+                  <span className="user-email">{user?.email}</span>
+                </div>
                 <div className="user-bubble">
                   <button 
                     className="profile-bubble-btn"

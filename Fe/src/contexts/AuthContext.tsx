@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import authService from '../services/authService';
 import sessionService from '../services/sessionService';
+import sessionAuthService from '../services/sessionAuthService';
 import type { User, SignupData } from '../services/authService';
 import { clearAuthData as clearAuthDataUtil } from '../utils/authUtils';
 
@@ -38,7 +39,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // First validate server session
+        // First try session-based authentication (cross-browser)
+        const sessionCheck = await sessionAuthService.checkSession();
+        
+        if (sessionCheck.success && sessionCheck.data.hasSession && sessionCheck.data.user) {
+          console.log('✅ Session-based authentication successful');
+          setUser(sessionCheck.data.user);
+          setIsAuthenticated(true);
+          
+          // Sync with localStorage for consistency
+          localStorage.setItem('user', JSON.stringify(sessionCheck.data.user));
+          localStorage.setItem('isAuthenticated', 'true');
+          return;
+        }
+        
+        // Fallback to traditional server session validation
         const isSessionValid = await sessionService.validateSession();
         
         if (isSessionValid) {
@@ -47,9 +62,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const isAuth = authService.isAuthenticated();
           
           if (storedUser && isAuth) {
+            console.log('✅ Token-based authentication successful');
             setUser(storedUser);
             setIsAuthenticated(true);
           }
+        } else {
+          console.log('❌ No valid authentication found');
         }
         // If session is invalid, auth data has already been cleared by sessionService
       } catch (error) {
@@ -59,6 +77,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem('isAuthenticated');
         localStorage.removeItem('accessToken');
         sessionService.clearSession();
+        sessionAuthService.clearSession();
       } finally {
         setLoading(false);
       }
@@ -79,6 +98,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('accessToken', response.accessToken);
       
+      // Initialize session-based authentication
+      if (response.sessionToken) {
+        sessionAuthService.initializeFromLoginResponse(response);
+        console.log('✅ Session-based authentication initialized');
+      }
+      
       return true;
     } catch (error) {
       console.error('Login error:', error);
@@ -98,6 +123,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('accessToken', response.accessToken);
       
+      // Initialize session-based authentication
+      if (response.sessionToken) {
+        sessionAuthService.initializeFromLoginResponse(response);
+        console.log('✅ Session-based authentication initialized');
+      }
+      
       return true;
     } catch (error) {
       console.error('Signup error:', error);
@@ -111,17 +142,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
+      // Clear session-based authentication
+      sessionAuthService.clearSession();
+      
       setUser(null);
       setIsAuthenticated(false);
     }
   };
 
   const clearAuthData = () => {
-    // Use the utility function to clear localStorage
-    clearAuthDataUtil();
+    // Use the utility function to clear localStorage (preserve chat data)
+    clearAuthDataUtil(true);
     
     // Clear session data
     sessionService.clearSession();
+    sessionAuthService.clearSession();
     
     // Reset state
     setUser(null);

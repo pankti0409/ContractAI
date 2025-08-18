@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authController from '../controllers/authController';
 import { authenticateToken, requireAuth, optionalAuth } from '../middleware/auth';
+import { requireSession, optionalSession, checkSession } from '../middleware/sessionAuth';
 import { handleValidationErrors } from '../middleware/errorHandler';
 import { 
   validateUserRegistration, 
@@ -169,6 +170,46 @@ router.delete('/sessions/:sessionId',
   authenticateToken,
   requireAuth,
   authController.revokeSession
+);
+
+// Session-based authentication routes
+/**
+ * @route   POST /api/auth/validate-session
+ * @desc    Validate user session token
+ * @access  Public
+ */
+router.post('/validate-session', 
+  authLimiter,
+  authController.validateSession
+);
+
+/**
+ * @route   GET /api/auth/session-info
+ * @desc    Get current session information
+ * @access  Private (Session)
+ */
+router.get('/session-info', 
+  requireSession,
+  authController.getSessionInfo
+);
+
+/**
+ * @route   GET /api/auth/check-session
+ * @desc    Check if user has a valid session (non-blocking)
+ * @access  Public
+ */
+router.get('/check-session', 
+  checkSession,
+  (req: any, res) => {
+    res.json({
+      success: true,
+      data: {
+        hasSession: !!req.session,
+        user: req.sessionUser || null,
+        session: req.session || null
+      }
+    });
+  }
 );
 
 export default router;

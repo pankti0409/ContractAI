@@ -17,7 +17,7 @@ const AuthManager: React.FC = () => {
 
   const handleForceRefresh = () => {
     if (window.confirm('This will clear authentication data and refresh the page. Continue?')) {
-      clearAuthDataAndNotify();
+      clearAuthDataAndNotify(false); // Clear everything including chat data for force refresh
       window.location.reload();
     }
   };

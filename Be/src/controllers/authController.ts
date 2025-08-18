@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { AuthenticatedRequest } from '../types';
 import authService, { RegisterRequest, LoginRequest, RefreshTokenRequest } from '../services/authService';
+import userSessionService from '../services/userSessionService';
 import { ValidationError, AuthenticationError } from '../utils/errors';
 import { asyncHandler } from '../middleware/errorHandler';
 import { validationResult } from 'express-validator';
@@ -26,8 +27,20 @@ class AuthController {
       lastName
     });
 
+    // Create user session
+    const sessionInfo = userSessionService.extractSessionInfo(req);
+    const userSession = await userSessionService.createSession(result.user.id, sessionInfo);
+
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
+    // Set session token as httpOnly cookie
+    res.cookie('sessionToken', userSession.sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -39,7 +52,8 @@ class AuthController {
       message: 'User registered successfully',
       data: {
         user: result.user,
-        accessToken: result.accessToken
+        accessToken: result.accessToken,
+        sessionToken: userSession.sessionToken
       }
     });
   });
@@ -66,8 +80,20 @@ class AuthController {
       ipAddress
     });
 
+    // Create user session
+    const sessionInfo = userSessionService.extractSessionInfo(req);
+    const userSession = await userSessionService.createSession(result.user.id, sessionInfo);
+
     // Set refresh token as httpOnly cookie
     res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+    });
+
+    // Set session token as httpOnly cookie
+    res.cookie('sessionToken', userSession.sessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
@@ -79,7 +105,8 @@ class AuthController {
       message: 'Login successful',
       data: {
         user: result.user,
-        accessToken: result.accessToken
+        accessToken: result.accessToken,
+        sessionToken: userSession.sessionToken
       }
     });
   });
@@ -139,7 +166,9 @@ class AuthController {
 
   logout = asyncHandler(async (req: Request, res: Response) => {
     const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+    const sessionToken = req.cookies.sessionToken || req.body.sessionToken;
     
+    // Logout from refresh token system
     if (refreshToken) {
       try {
         await authService.logout(refreshToken);
@@ -150,8 +179,20 @@ class AuthController {
       }
     }
 
-    // Clear refresh token cookie
+    // Logout from user session system
+    if (sessionToken) {
+      try {
+        await userSessionService.logoutSession(sessionToken);
+      } catch (error) {
+        // Don't fail logout if session doesn't exist
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.log('Session logout error (non-critical):', errorMessage);
+      }
+    }
+
+    // Clear cookies
     res.clearCookie('refreshToken');
+    res.clearCookie('sessionToken');
 
     res.json({
       success: true,
@@ -162,10 +203,15 @@ class AuthController {
   logoutAll = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!.userId;
     
+    // Logout from all refresh tokens
     await authService.logoutAll(userId);
+    
+    // Logout from all user sessions
+    await userSessionService.logoutAllSessions(userId);
 
-    // Clear refresh token cookie
+    // Clear cookies
     res.clearCookie('refreshToken');
+    res.clearCookie('sessionToken');
 
     res.json({
       success: true,
@@ -296,6 +342,78 @@ class AuthController {
       message: 'Token is valid',
       data: {
         user: req.user
+      }
+    });
+  });
+
+  validateSession = asyncHandler(async (req: Request, res: Response) => {
+    const sessionToken = req.cookies.sessionToken || req.body.sessionToken || req.headers['x-session-token'];
+    
+    if (!sessionToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'No session token provided'
+      });
+    }
+
+    const sessionWithUser = await userSessionService.getSessionWithUser(sessionToken);
+    
+    if (!sessionWithUser) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired session'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Session is valid',
+      data: {
+        user: sessionWithUser.user,
+        session: {
+          id: sessionWithUser.id,
+          deviceInfo: sessionWithUser.deviceInfo,
+          lastAccessed: sessionWithUser.lastAccessed,
+          expiresAt: sessionWithUser.expiresAt
+        }
+      }
+    });
+  });
+
+  getSessionInfo = asyncHandler(async (req: Request, res: Response) => {
+    const sessionToken = req.cookies.sessionToken || req.body.sessionToken || req.headers['x-session-token'];
+    
+    if (!sessionToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'No session token provided'
+      });
+    }
+
+    const session = await userSessionService.validateSession(sessionToken);
+    
+    if (!session) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid or expired session'
+      });
+    }
+
+    const sessionStats = await userSessionService.getSessionStats(session.userId);
+
+    res.json({
+      success: true,
+      message: 'Session information retrieved',
+      data: {
+        session: {
+          id: session.id,
+          deviceInfo: session.deviceInfo,
+          ipAddress: session.ipAddress,
+          lastAccessed: session.lastAccessed,
+          expiresAt: session.expiresAt,
+          createdAt: session.createdAt
+        },
+        stats: sessionStats
       }
     });
   });

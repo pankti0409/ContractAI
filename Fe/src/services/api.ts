@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearAuthDataAndNotify } from '../utils/authUtils';
+import { clearAuthDataOnlyAndNotify } from '../utils/authUtils';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -45,8 +45,8 @@ api.interceptors.response.use(
         originalRequest.headers.Authorization = `Bearer ${accessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Refresh failed, clear auth data and notify components
-        clearAuthDataAndNotify();
+        // Refresh failed, clear auth data and notify components (preserve chat data)
+        clearAuthDataOnlyAndNotify();
         // Let the application handle the unauthenticated state
         return Promise.reject(refreshError);
       }
