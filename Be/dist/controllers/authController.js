@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const authService_1 = __importDefault(require("../services/authService"));
+const userSessionService_1 = __importDefault(require("../services/userSessionService"));
 const errorHandler_1 = require("../middleware/errorHandler");
 const express_validator_1 = require("express-validator");
 class AuthController {
@@ -24,7 +25,15 @@ class AuthController {
                 firstName,
                 lastName
             });
+            const sessionInfo = userSessionService_1.default.extractSessionInfo(req);
+            const userSession = await userSessionService_1.default.createSession(result.user.id, sessionInfo);
             res.cookie('refreshToken', result.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 30 * 24 * 60 * 60 * 1000
+            });
+            res.cookie('sessionToken', userSession.sessionToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
@@ -35,7 +44,8 @@ class AuthController {
                 message: 'User registered successfully',
                 data: {
                     user: result.user,
-                    accessToken: result.accessToken
+                    accessToken: result.accessToken,
+                    sessionToken: userSession.sessionToken
                 }
             });
         });
@@ -57,7 +67,15 @@ class AuthController {
                 deviceInfo,
                 ipAddress
             });
+            const sessionInfo = userSessionService_1.default.extractSessionInfo(req);
+            const userSession = await userSessionService_1.default.createSession(result.user.id, sessionInfo);
             res.cookie('refreshToken', result.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'strict',
+                maxAge: 30 * 24 * 60 * 60 * 1000
+            });
+            res.cookie('sessionToken', userSession.sessionToken, {
                 httpOnly: true,
                 secure: process.env.NODE_ENV === 'production',
                 sameSite: 'strict',
@@ -68,7 +86,8 @@ class AuthController {
                 message: 'Login successful',
                 data: {
                     user: result.user,
-                    accessToken: result.accessToken
+                    accessToken: result.accessToken,
+                    sessionToken: userSession.sessionToken
                 }
             });
         });
@@ -119,6 +138,7 @@ class AuthController {
         });
         this.logout = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
+            const sessionToken = req.cookies.sessionToken || req.body.sessionToken;
             if (refreshToken) {
                 try {
                     await authService_1.default.logout(refreshToken);
@@ -128,8 +148,18 @@ class AuthController {
                     console.log('Logout error (non-critical):', errorMessage);
                 }
             }
+            if (sessionToken) {
+                try {
+                    await userSessionService_1.default.logoutSession(sessionToken);
+                }
+                catch (error) {
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                    console.log('Session logout error (non-critical):', errorMessage);
+                }
+            }
             res.clearCookie('refreshToken');
-            res.json({
+            res.clearCookie('sessionToken');
+            return res.json({
                 success: true,
                 message: 'Logout successful'
             });
@@ -137,8 +167,10 @@ class AuthController {
         this.logoutAll = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             const userId = req.user.userId;
             await authService_1.default.logoutAll(userId);
+            await userSessionService_1.default.logoutAllSessions(userId);
             res.clearCookie('refreshToken');
-            res.json({
+            res.clearCookie('sessionToken');
+            return res.json({
                 success: true,
                 message: 'Logged out from all devices successfully'
             });
@@ -204,7 +236,7 @@ class AuthController {
         });
         this.getProfile = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             const userId = req.user.userId;
-            res.json({
+            return res.json({
                 success: true,
                 data: {
                     user: req.user
@@ -214,7 +246,7 @@ class AuthController {
         this.getSessions = (0, errorHandler_1.asyncHandler)(async (req, res) => {
             const userId = req.user.userId;
             const sessions = await authService_1.default.getUserSessions(userId);
-            res.json({
+            return res.json({
                 success: true,
                 data: {
                     sessions
@@ -225,17 +257,78 @@ class AuthController {
             const userId = req.user.userId;
             const { sessionId } = req.params;
             await authService_1.default.revokeSession(userId, sessionId);
-            res.json({
+            return res.json({
                 success: true,
                 message: 'Session revoked successfully'
             });
         });
         this.verifyToken = (0, errorHandler_1.asyncHandler)(async (req, res) => {
-            res.json({
+            return res.json({
                 success: true,
                 message: 'Token is valid',
                 data: {
                     user: req.user
+                }
+            });
+        });
+        this.validateSession = (0, errorHandler_1.asyncHandler)(async (req, res) => {
+            const sessionToken = req.cookies.sessionToken || req.body.sessionToken || req.headers['x-session-token'];
+            if (!sessionToken) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'No session token provided'
+                });
+            }
+            const sessionWithUser = await userSessionService_1.default.getSessionWithUser(sessionToken);
+            if (!sessionWithUser) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid or expired session'
+                });
+            }
+            return res.json({
+                success: true,
+                message: 'Session is valid',
+                data: {
+                    user: sessionWithUser.user,
+                    session: {
+                        id: sessionWithUser.id,
+                        deviceInfo: sessionWithUser.deviceInfo,
+                        lastAccessed: sessionWithUser.lastAccessed,
+                        expiresAt: sessionWithUser.expiresAt
+                    }
+                }
+            });
+        });
+        this.getSessionInfo = (0, errorHandler_1.asyncHandler)(async (req, res) => {
+            const sessionToken = req.cookies.sessionToken || req.body.sessionToken || req.headers['x-session-token'];
+            if (!sessionToken) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'No session token provided'
+                });
+            }
+            const session = await userSessionService_1.default.validateSession(sessionToken);
+            if (!session) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid or expired session'
+                });
+            }
+            const sessionStats = await userSessionService_1.default.getSessionStats(session.userId);
+            return res.json({
+                success: true,
+                message: 'Session information retrieved',
+                data: {
+                    session: {
+                        id: session.id,
+                        deviceInfo: session.deviceInfo,
+                        ipAddress: session.ipAddress,
+                        lastAccessed: session.lastAccessed,
+                        expiresAt: session.expiresAt,
+                        createdAt: session.createdAt
+                    },
+                    stats: sessionStats
                 }
             });
         });

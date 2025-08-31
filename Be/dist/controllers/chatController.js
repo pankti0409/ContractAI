@@ -96,11 +96,11 @@ class ChatController {
             }
             const userId = req.user.userId;
             const { chatId } = req.params;
-            const { content, files } = req.body;
+            const { content, files, messageType = 'text' } = req.body;
             const result = await chatService_1.default.sendMessage(chatId, userId, {
                 content,
                 files,
-                messageType: 'user'
+                messageType
             });
             return res.status(201).json({
                 success: true,
@@ -217,7 +217,7 @@ class ChatController {
                 const result = await chatService_1.default.sendMessage(chatId, userId, {
                     content,
                     files,
-                    messageType: 'user'
+                    messageType: 'text'
                 });
                 res.write(`data: ${JSON.stringify({
                     type: 'user_message',

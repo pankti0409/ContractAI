@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Admin API service - separate from main API to use different port
 const adminApi = axios.create({
-  baseURL: 'http://localhost:3001/api/admin',
+  baseURL: 'http://localhost:3000/api/admin',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -34,23 +34,18 @@ export interface AdminStats {
   totalChats: number;
   totalFiles: number;
   totalMessages: number;
-  systemHealth: number | {
+  systemHealth: {
     status: string;
     uptime: string;
     responseTime: string;
     errorRate: string;
   };
-  serverUptime?: string;
-  activeUsers: number;
-  storageUsed?: string;
   recentActivity?: Array<{ type: string; count: number; timestamp: string }>;
 }
 
 export interface UserStats {
   totalUsers: number;
   activeUsers: number;
-  newUsersToday?: number;
-  newUsersThisWeek?: number;
   newUsersThisMonth: number;
   userGrowth: Array<{ month: string; users: number }>;
   usersByRegion: Array<{ region: string; users: number; percentage: number }>;
@@ -60,11 +55,7 @@ export interface UserStats {
 export interface FileStats {
   totalFiles: number;
   totalSize: string;
-  filesUploadedToday?: number;
-  filesUploadedThisWeek?: number;
-  filesUploadedThisMonth?: number;
   fileTypes: Array<{ type: string; count: number; percentage: number }>;
-  uploadTrends?: Array<{ date: string; uploads: number }>;
   uploadTrend?: Array<{ month: string; uploads: number }>;
 }
 
@@ -72,10 +63,7 @@ class AdminService {
   private token: string | null = null;
 
   constructor() {
-    this.token = localStorage.getItem('adminToken');
-    if (this.token) {
-      this.setAuthHeader(this.token);
-    }
+    // Remove persistent session - no automatic token loading
   }
 
   private setAuthHeader(token: string) {
@@ -91,31 +79,47 @@ class AdminService {
       const response = await adminApi.post<AdminLoginResponse>('/login', credentials);
       
       if (response.data.success) {
-        // Handle both token formats from different endpoints
         const token = response.data.token || response.data.data?.token;
         if (token) {
           this.token = token;
-          localStorage.setItem('adminToken', token);
           this.setAuthHeader(token);
         }
       }
       
       return response.data;
     } catch (error: any) {
+      console.error('Login error:', error);
+      
+      // Handle specific connection errors
+      if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
+        return {
+          success: false,
+          message: 'Backend server is not available. Please ensure the server is running on port 3001.'
+        };
+      }
+      
       if (error.response?.data) {
         return error.response.data;
       }
+      
       return {
         success: false,
-        message: 'Network error occurred'
+        message: 'Network error occurred. Please check your connection and try again.'
       };
     }
   }
 
   async logout(): Promise<void> {
-    this.token = null;
-    localStorage.removeItem('adminToken');
-    this.removeAuthHeader();
+    try {
+      // Try to call logout endpoint if server is available
+      await adminApi.post('/logout');
+    } catch (error) {
+      // Ignore logout errors - just clear local state
+      console.log('Logout endpoint not available, clearing local state only');
+    } finally {
+      this.token = null;
+      this.removeAuthHeader();
+    }
   }
 
   async getOverviewStats(): Promise<{ success: boolean; data?: AdminStats; message?: string }> {
@@ -123,6 +127,15 @@ class AdminService {
       const response = await adminApi.get('/stats/overview');
       return response.data;
     } catch (error: any) {
+      console.error('Overview stats error:', error);
+      
+      if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
+        return {
+          success: false,
+          message: 'Backend server is not available. Please ensure the server is running on port 3001.'
+        };
+      }
+      
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to fetch overview stats'
@@ -135,6 +148,15 @@ class AdminService {
       const response = await adminApi.get('/stats/users');
       return response.data;
     } catch (error: any) {
+      console.error('User stats error:', error);
+      
+      if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
+        return {
+          success: false,
+          message: 'Backend server is not available. Please ensure the server is running on port 3001.'
+        };
+      }
+      
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to fetch user stats'
@@ -147,6 +169,15 @@ class AdminService {
       const response = await adminApi.get('/stats/files');
       return response.data;
     } catch (error: any) {
+      console.error('File stats error:', error);
+      
+      if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
+        return {
+          success: false,
+          message: 'Backend server is not available. Please ensure the server is running on port 3001.'
+        };
+      }
+      
       return {
         success: false,
         message: error.response?.data?.message || 'Failed to fetch file stats'
@@ -160,6 +191,17 @@ class AdminService {
 
   getToken(): string | null {
     return this.token;
+  }
+
+  // Method to check if backend is available
+  async checkBackendStatus(): Promise<boolean> {
+    try {
+      // Use axios directly to check the main health endpoint
+      const response = await fetch('http://localhost:3000/health');
+      return response.ok;
+    } catch (error) {
+      return false;
+    }
   }
 }
 

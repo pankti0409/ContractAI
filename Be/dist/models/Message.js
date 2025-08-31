@@ -36,7 +36,7 @@ class MessageModel {
                 await client.query(fileLinkQuery, [message.id]);
                 const filesQuery = `
           SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-                 f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+                 f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
           FROM files f
           JOIN message_files mf ON f.id = mf.file_id
           WHERE mf.message_id = $1
@@ -72,7 +72,7 @@ class MessageModel {
             const message = this.mapRowToMessage(result.rows[0]);
             const filesQuery = `
         SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-               f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+               f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
         FROM files f
         JOIN message_files mf ON f.id = mf.file_id
         WHERE mf.message_id = $1
@@ -109,7 +109,7 @@ class MessageModel {
                 const message = this.mapRowToMessage(row);
                 const filesQuery = `
             SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
             FROM files f
             JOIN message_files mf ON f.id = mf.file_id
             WHERE mf.message_id = $1
@@ -159,7 +159,7 @@ class MessageModel {
                 message.chatTitle = row.chat_title;
                 const filesQuery = `
             SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
             FROM files f
             JOIN message_files mf ON f.id = mf.file_id
             WHERE mf.message_id = $1
@@ -214,7 +214,7 @@ class MessageModel {
             const message = this.mapRowToMessage(result.rows[0]);
             const filesQuery = `
         SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-               f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+               f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
         FROM files f
         JOIN message_files mf ON f.id = mf.file_id
         WHERE mf.message_id = $1
@@ -306,6 +306,7 @@ class MessageModel {
             fileSize: row.file_size,
             mimeType: row.mime_type,
             uploadStatus: row.upload_status,
+            extractedText: row.extracted_text,
             createdAt: new Date(row.created_at)
         };
     }

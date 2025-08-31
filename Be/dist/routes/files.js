@@ -42,6 +42,7 @@ router.get('/stats', fileLimiter, fileController_1.default.getFileStats);
 router.get('/:fileId', fileLimiter, (0, validation_1.validateUUIDParam)('fileId'), errorHandler_1.handleValidationErrors, fileController_1.default.getFile);
 router.get('/:fileId/download', fileLimiter, (0, validation_1.validateUUIDParam)('fileId'), errorHandler_1.handleValidationErrors, fileController_1.default.downloadFile);
 router.get('/:fileId/preview', fileLimiter, (0, validation_1.validateUUIDParam)('fileId'), errorHandler_1.handleValidationErrors, fileController_1.default.previewFile);
+router.get('/:fileId/text', fileLimiter, (0, validation_1.validateUUIDParam)('fileId'), errorHandler_1.handleValidationErrors, fileController_1.default.getFileText);
 router.delete('/:fileId', fileLimiter, (0, validation_1.validateUUIDParam)('fileId'), errorHandler_1.handleValidationErrors, fileController_1.default.deleteFile);
 router.post('/delete/batch', fileLimiter, validation_1.validateMultipleFileUpload, errorHandler_1.handleValidationErrors, fileController_1.default.deleteMultipleFiles);
 router.get('/chats/:chatId', fileLimiter, (0, validation_1.validateUUIDParam)('chatId'), errorHandler_1.handleValidationErrors, fileController_1.default.getChatFiles);

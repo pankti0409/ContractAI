@@ -8,6 +8,7 @@ export interface CreateFileRequest {
     fileSize: number;
     mimeType: string;
     uploadStatus?: 'uploading' | 'uploaded' | 'processed' | 'failed';
+    extractedText?: string;
 }
 export declare class FileModel {
     private pool;

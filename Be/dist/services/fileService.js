@@ -145,18 +145,21 @@ class FileService {
     }
     async extractTextFromFile(filePath, mimeType) {
         try {
-            if (mimeType === 'text/plain') {
-                const content = await promises_1.default.readFile(filePath, 'utf-8');
-                return content;
+            switch (mimeType) {
+                case 'text/plain':
+                    const content = await promises_1.default.readFile(filePath, 'utf-8');
+                    return content;
+                case 'application/pdf':
+                    return 'PDF text extraction temporarily disabled';
+                case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                    return 'DOCX text extraction temporarily disabled';
+                case 'application/msword':
+                case 'application/rtf':
+                case 'text/rtf':
+                    return 'Text extraction temporarily disabled for this file type';
+                default:
+                    return '[Text extraction not supported for this file type]';
             }
-            if (mimeType === 'application/pdf') {
-                return '[PDF content would be extracted here using pdf-parse library]';
-            }
-            if (mimeType === 'application/msword' ||
-                mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-                return '[Word document content would be extracted here using mammoth library]';
-            }
-            return '[Text extraction not implemented for this file type]';
         }
         catch (error) {
             console.error('Text extraction failed:', error);

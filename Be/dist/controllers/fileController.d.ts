@@ -7,6 +7,7 @@ declare class FileController {
     getChatFiles: (req: import("express").Request, res: Response, next: import("express").NextFunction) => void;
     downloadFile: (req: import("express").Request, res: Response, next: import("express").NextFunction) => void;
     previewFile: (req: import("express").Request, res: Response, next: import("express").NextFunction) => void;
+    getFileText: (req: import("express").Request, res: Response, next: import("express").NextFunction) => void;
     deleteFile: (req: import("express").Request, res: Response, next: import("express").NextFunction) => void;
     getFileStats: (req: import("express").Request, res: Response, next: import("express").NextFunction) => void;
     processFileForAI: (req: import("express").Request, res: Response, next: import("express").NextFunction) => void;

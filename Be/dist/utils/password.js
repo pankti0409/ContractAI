@@ -18,12 +18,17 @@ const hashPassword = async (password) => {
 exports.hashPassword = hashPassword;
 const comparePassword = async (password, hashedPassword) => {
     try {
-        const [salt, hash] = hashedPassword.split(':');
-        if (!salt || !hash) {
+        if (hashedPassword.includes(':')) {
+            const [salt, hash] = hashedPassword.split(':');
+            if (!salt || !hash) {
+                return false;
+            }
+            const hashToCompare = crypto_1.default.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
+            return hash === hashToCompare;
+        }
+        else {
             return false;
         }
-        const hashToCompare = crypto_1.default.pbkdf2Sync(password, salt, 1000, 64, 'sha512').toString('hex');
-        return hash === hashToCompare;
     }
     catch (error) {
         throw new Error('Password comparison failed');

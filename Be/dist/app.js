@@ -13,8 +13,7 @@ const uuid_1 = require("uuid");
 const database_1 = require("./config/database");
 const errorHandler_1 = require("./middleware/errorHandler");
 const auth_1 = __importDefault(require("./routes/auth"));
-const chats_1 = __importDefault(require("./routes/chats"));
-const files_1 = __importDefault(require("./routes/files"));
+const admin_1 = __importDefault(require("./routes/admin"));
 const app = (0, express_1.default)();
 const SERVER_SESSION_ID = (0, uuid_1.v4)();
 console.log(`Server session ID: ${SERVER_SESSION_ID}`);
@@ -82,8 +81,7 @@ app.get('/api/session/validate', (req, res) => {
     });
 });
 app.use('/api/auth', auth_1.default);
-app.use('/api/chats', chats_1.default);
-app.use('/api/files', files_1.default);
+app.use('/api/admin', admin_1.default);
 app.get('/', (req, res) => {
     res.json({
         success: true,
@@ -94,6 +92,7 @@ app.get('/', (req, res) => {
             auth: '/api/auth',
             chats: '/api/chats',
             files: '/api/files',
+            admin: '/api/admin',
             health: '/health'
         }
     });

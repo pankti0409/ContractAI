@@ -35,8 +35,13 @@ const authenticateAdmin = asyncHandler(async (req: AuthenticatedRequest, res: Re
   
   // Simple hardcoded admin credentials
   if (username === 'admin' && password === 'admin') {
-    req.user = { userId: 'admin', email: 'admin@contractai.com' };
-    next();
+    req.user = { 
+      id: 'admin',
+      userId: 'admin', 
+      email: 'admin@contractai.com',
+      role: 'admin'
+    };
+    return next();
   } else {
     return res.status(401).json({
       success: false,
@@ -56,8 +61,13 @@ const requireAdmin = asyncHandler(async (req: AuthenticatedRequest, res: Respons
     });
   }
   
-  req.user = { userId: 'admin', email: 'admin@contractai.com' };
-  next();
+  req.user = { 
+    id: 'admin',
+    userId: 'admin', 
+    email: 'admin@contractai.com',
+    role: 'admin'
+  };
+  return next();
 });
 
 /**

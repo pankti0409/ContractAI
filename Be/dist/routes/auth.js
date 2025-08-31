@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const authController_1 = __importDefault(require("../controllers/authController"));
 const auth_1 = require("../middleware/auth");
+const sessionAuth_1 = require("../middleware/sessionAuth");
 const errorHandler_1 = require("../middleware/errorHandler");
 const validation_1 = require("../utils/validation");
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
@@ -42,5 +43,17 @@ router.post('/change-password', auth_1.authenticateToken, auth_1.requireAuth, st
 router.post('/logout-all', auth_1.authenticateToken, auth_1.requireAuth, authController_1.default.logoutAll);
 router.get('/sessions', auth_1.authenticateToken, auth_1.requireAuth, authController_1.default.getSessions);
 router.delete('/sessions/:sessionId', auth_1.authenticateToken, auth_1.requireAuth, authController_1.default.revokeSession);
+router.post('/validate-session', authLimiter, authController_1.default.validateSession);
+router.get('/session-info', sessionAuth_1.requireSession, authController_1.default.getSessionInfo);
+router.get('/check-session', sessionAuth_1.checkSession, (req, res) => {
+    res.json({
+        success: true,
+        data: {
+            hasSession: !!req.session,
+            user: req.sessionUser || null,
+            session: req.session || null
+        }
+    });
+});
 exports.default = router;
 //# sourceMappingURL=auth.js.map
