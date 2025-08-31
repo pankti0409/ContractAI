@@ -713,6 +713,16 @@ nav {
   color: #007bff;
 }
 
+.admin-link {
+  opacity: 0.7;
+  font-size: 0.8rem;
+}
+
+.admin-link:hover {
+  opacity: 1;
+  color: #28a745;
+}
+
 /* Footer Responsive Design */
 @media (max-width: 1024px) {
   .footer-grid {
@@ -1259,11 +1269,25 @@ nav {
   border: 1px solid rgba(0, 0, 0, 0.1);
   border-radius: 12px;
   max-width: 280px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.file-card:hover {
+  background: rgba(0, 0, 0, 0.1);
+  border-color: #10a37f;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .message.user .file-card {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.message.user .file-card:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .file-icon {
@@ -1298,6 +1322,17 @@ nav {
   font-size: 12px;
   color: rgba(0, 0, 0, 0.6);
   font-weight: 500;
+}
+
+.file-preview-hint {
+  font-size: 11px;
+  color: rgba(0, 0, 0, 0.5);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.message.user .file-preview-hint {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* Ready to Upload Area */

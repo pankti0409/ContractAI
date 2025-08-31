@@ -11,7 +11,7 @@ export interface Message {
   id: string;
   chatId: string;
   content: string;
-  messageType: 'user' | 'assistant';
+  messageType: 'text' | 'file';
   createdAt: string;
 }
 
@@ -27,7 +27,8 @@ export interface CreateChatData {
 export interface SendMessageData {
   chatId: string;
   content: string;
-  messageType: 'user';
+  messageType: 'text' | 'file';
+  files?: string[];
 }
 
 class ChatService {
@@ -53,7 +54,8 @@ class ChatService {
   async sendMessage(data: SendMessageData): Promise<MessageResponse> {
     const response = await api.post(`/chats/${data.chatId}/messages`, {
       content: data.content,
-      messageType: data.messageType
+      messageType: data.messageType,
+      files: data.files
     });
     return response.data.data;
   }
@@ -68,7 +70,8 @@ class ChatService {
       credentials: 'include',
       body: JSON.stringify({
         content: data.content,
-        messageType: data.messageType
+        messageType: data.messageType,
+        files: data.files
       })
     });
 

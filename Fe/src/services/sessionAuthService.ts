@@ -33,7 +33,7 @@ export interface SessionCheckResponse {
 class SessionAuthService {
   private sessionToken: string | null = null;
   private user: User | null = null;
-  private isAuthenticated: boolean = false;
+  private _isAuthenticated: boolean = false;
   private monitoringInterval: NodeJS.Timeout | null = null;
 
   constructor() {
@@ -45,7 +45,7 @@ class SessionAuthService {
     if (storedUser) {
       try {
         this.user = JSON.parse(storedUser);
-        this.isAuthenticated = true;
+        this._isAuthenticated = true;
       } catch (error) {
         console.error('Failed to parse stored session user:', error);
         localStorage.removeItem('sessionUser');
@@ -216,7 +216,7 @@ class SessionAuthService {
     
     if (response.user) {
       this.user = response.user;
-      this.isAuthenticated = true;
+      this._isAuthenticated = true;
       localStorage.setItem('sessionUser', JSON.stringify(response.user));
     }
     
@@ -230,7 +230,7 @@ class SessionAuthService {
   clearSession(): void {
     this.clearSessionToken();
     this.user = null;
-    this.isAuthenticated = false;
+    this._isAuthenticated = false;
     localStorage.removeItem('sessionUser');
     this.stopSessionMonitoring();
   }

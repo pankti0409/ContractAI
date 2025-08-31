@@ -105,7 +105,7 @@ class ChatService {
       ...messageData,
       chatId,
       userId,
-      messageType: 'user'
+      messageType: messageData.messageType || 'text'
     };
 
     const userMessage = await MessageModel.create(userMessageData);
@@ -118,7 +118,7 @@ class ChatService {
       chatId,
       userId,
       content: aiResponseData.content,
-      messageType: 'assistant'
+      messageType: 'text'
     };
 
     const aiMessage = await MessageModel.create(aiMessageData);
@@ -160,9 +160,9 @@ class ChatService {
       throw new AuthorizationError('Access denied to this message');
     }
 
-    // Only allow updating user messages
-    if (message.messageType !== 'user') {
-      throw new ValidationError('Only user messages can be updated');
+    // Only allow updating text messages
+    if (message.messageType !== 'text') {
+      throw new ValidationError('Only text messages can be updated');
     }
 
     return await MessageModel.update(messageId, updates);

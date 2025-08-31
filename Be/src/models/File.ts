@@ -14,6 +14,7 @@ export interface CreateFileRequest {
   fileSize: number;
   mimeType: string;
   uploadStatus?: 'uploading' | 'uploaded' | 'processed' | 'failed';
+  extractedText?: string;
 }
 
 export class FileModel {
@@ -27,9 +28,9 @@ export class FileModel {
     const client: PoolClient = await this.pool.connect();
     try {
       const query = `
-        INSERT INTO files (user_id, chat_id, original_name, file_name, file_path, file_size, mime_type, upload_status)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, user_id, chat_id, original_name, file_name, file_path, file_size, mime_type, upload_status, created_at
+        INSERT INTO files (user_id, chat_id, original_name, file_name, file_path, file_size, mime_type, upload_status, extracted_text)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id, user_id, chat_id, original_name, file_name, file_path, file_size, mime_type, upload_status, extracted_text, created_at
       `;
 
       const values = [
@@ -40,7 +41,8 @@ export class FileModel {
         fileData.filePath,
         fileData.fileSize,
         fileData.mimeType,
-        fileData.uploadStatus || 'completed'
+        fileData.uploadStatus || 'uploaded',
+        fileData.extractedText || null
       ];
 
       const result = await client.query(query, values);
@@ -58,7 +60,7 @@ export class FileModel {
     try {
       const query = `
         SELECT id, user_id, chat_id, original_name, file_name, file_path, 
-               file_size, mime_type, upload_status, created_at
+               file_size, mime_type, upload_status, extracted_text, created_at
         FROM files 
         WHERE id = $1
       `;
@@ -91,7 +93,7 @@ export class FileModel {
       // Get paginated results
       const query = `
         SELECT id, user_id, chat_id, original_name, file_name, file_path, 
-               file_size, mime_type, upload_status, created_at
+               file_size, mime_type, upload_status, extracted_text, created_at
         FROM files 
         WHERE user_id = $1
         ORDER BY ${sortBy} ${sortOrder}
@@ -132,7 +134,7 @@ export class FileModel {
       // Get paginated results
       const query = `
         SELECT id, user_id, chat_id, original_name, file_name, file_path, 
-               file_size, mime_type, upload_status, created_at
+               file_size, mime_type, upload_status, extracted_text, created_at
         FROM files 
         WHERE chat_id = $1
         ORDER BY ${sortBy} ${sortOrder}
@@ -164,7 +166,7 @@ export class FileModel {
     try {
       const query = `
         SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-               f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+               f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
         FROM files f
         JOIN message_files mf ON f.id = mf.file_id
         WHERE mf.message_id = $1
@@ -194,7 +196,7 @@ export class FileModel {
         SET upload_status = $1
         WHERE id = $2
         RETURNING id, user_id, chat_id, original_name, file_name, file_path, 
-                  file_size, mime_type, upload_status, created_at
+                  file_size, mime_type, upload_status, extracted_text, created_at
       `;
 
       const result = await client.query(query, [status, id]);
@@ -396,6 +398,7 @@ export class FileModel {
       fileSize: row.file_size,
       mimeType: row.mime_type,
       uploadStatus: row.upload_status,
+      extractedText: row.extracted_text,
       createdAt: new Date(row.created_at)
     };
   }

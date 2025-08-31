@@ -401,11 +401,13 @@ const ChatInterface = () => {
       }
     }
 
-    // Upload files first if any
+    // Upload files first if any and collect file IDs
+    let uploadedFileIds: string[] = [];
     try {
       if (uploadedFiles.length > 0) {
         for (const uploadedFile of uploadedFiles) {
-          await fileService.uploadFile(uploadedFile.file, targetChatId);
+          const uploadResponse = await fileService.uploadFile(uploadedFile.file, targetChatId);
+          uploadedFileIds.push(uploadResponse.id);
         }
         // Reload chat files after successful upload
         await loadChatFiles(targetChatId);
@@ -448,7 +450,8 @@ const ChatInterface = () => {
       const response = await chatService.sendMessage({
         chatId: targetChatId,
         content: messageContent || "Please analyze the uploaded files.",
-        messageType: 'user'
+        messageType: uploadedFiles.length > 0 ? 'file' : 'text',
+        files: uploadedFileIds.length > 0 ? uploadedFileIds : undefined
       });
 
       // The API returns both userMessage and aiResponse
@@ -493,10 +496,11 @@ const ChatInterface = () => {
     try {
       setSelectedDocument(file);
       setShowDocumentModal(true);
-      // In a real implementation, you would fetch the document content
-      // const content = await fileService.getFileContent(file.id);
-      // setDocumentContent(content);
-      setDocumentContent('Document preview functionality would be implemented here.');
+      setDocumentContent('Loading document content...');
+      
+      // Fetch the extracted text content
+      const textData = await fileService.getFileText(file.id);
+      setDocumentContent(textData.extractedText || 'No text content available for this file.');
     } catch (error) {
       console.error('Failed to load document:', error);
     }
@@ -608,17 +612,21 @@ const ChatInterface = () => {
                         {message.text && <div className="message-text-content">{message.text}</div>}
                         {message.files && message.files.length > 0 && (
                           <div className="message-files">
-                            {message.files.map((file, index) => (
-                              <div key={index} className="file-card">
-                                <div className="file-icon">
-                                  <FiPaperclip />
+                            {message.files.map((file, index) => {
+                              const chatFile = chatFiles.find(cf => cf.originalName === file.name);
+                              return (
+                                <div key={index} className="file-card" onClick={() => chatFile && handleDocumentClick(chatFile)}>
+                                  <div className="file-icon">
+                                    <FiPaperclip />
+                                  </div>
+                                  <div className="file-details">
+                                    <div className="file-name">{file.name}</div>
+                                    <div className="file-type">{file.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
+                                    <div className="file-preview-hint">Click to view content</div>
+                                  </div>
                                 </div>
-                                <div className="file-details">
-                                   <div className="file-name">{file.name}</div>
-                                   <div className="file-type">{file.name.split('.').pop()?.toUpperCase() || 'FILE'}</div>
-                                 </div>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         )}
                       </div>

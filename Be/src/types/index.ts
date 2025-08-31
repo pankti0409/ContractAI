@@ -56,7 +56,7 @@ export interface Message {
   chatId: string;
   userId: string;
   content: string;
-  messageType: 'user' | 'assistant';
+  messageType: 'text' | 'file';
   createdAt: Date;
   files?: UploadedFile[];
   chatTitle?: string;
@@ -66,7 +66,7 @@ export interface CreateMessageRequest {
   chatId: string;
   userId: string;
   content: string;
-  messageType: 'user' | 'assistant';
+  messageType: 'text' | 'file';
   files?: string[]; // file IDs
 }
 
@@ -81,6 +81,7 @@ export interface UploadedFile {
   fileSize: number;
   mimeType: string;
   uploadStatus: 'uploading' | 'uploaded' | 'processed' | 'failed';
+  extractedText?: string;
   createdAt: Date;
 }
 

@@ -44,7 +44,7 @@ export class MessageModel {
         // Get file details
         const filesQuery = `
           SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-                 f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+                 f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
           FROM files f
           JOIN message_files mf ON f.id = mf.file_id
           WHERE mf.message_id = $1
@@ -89,7 +89,7 @@ export class MessageModel {
       // Get associated files
       const filesQuery = `
         SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-               f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+               f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
         FROM files f
         JOIN message_files mf ON f.id = mf.file_id
         WHERE mf.message_id = $1
@@ -134,7 +134,7 @@ export class MessageModel {
           // Get associated files for each message
           const filesQuery = `
             SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
             FROM files f
             JOIN message_files mf ON f.id = mf.file_id
             WHERE mf.message_id = $1
@@ -194,7 +194,7 @@ export class MessageModel {
           // Get associated files for each message
           const filesQuery = `
             SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+                   f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
             FROM files f
             JOIN message_files mf ON f.id = mf.file_id
             WHERE mf.message_id = $1
@@ -258,7 +258,7 @@ export class MessageModel {
       // Get associated files
       const filesQuery = `
         SELECT f.id, f.user_id, f.chat_id, f.original_name, f.file_name, 
-               f.file_path, f.file_size, f.mime_type, f.upload_status, f.created_at
+               f.file_path, f.file_size, f.mime_type, f.upload_status, f.extracted_text, f.created_at
         FROM files f
         JOIN message_files mf ON f.id = mf.file_id
         WHERE mf.message_id = $1
@@ -356,6 +356,7 @@ export class MessageModel {
       fileSize: row.file_size,
       mimeType: row.mime_type,
       uploadStatus: row.upload_status,
+      extractedText: row.extracted_text,
       createdAt: new Date(row.created_at)
     };
   }

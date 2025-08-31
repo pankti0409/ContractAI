@@ -11,6 +11,7 @@
     "db:setup": "node scripts/setup-database.js",
     "db:reset": "node scripts/reset-database.js",
     "db:validate": "node scripts/validate-setup.js",
+    "db:migrate-files": "node scripts/migrate-file-messaging.js",
     "db:setup-windows": "powershell -ExecutionPolicy Bypass -File scripts/setup-database.ps1",
     "setup": "npm install && npm run db:setup"
   },
@@ -24,7 +25,6 @@
   "license": "ISC",
   "dependencies": {
     "@types/uuid": "^10.0.0",
-
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
@@ -33,13 +33,15 @@
     "express-validator": "^7.2.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mammoth": "^1.10.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.16.3",
+    "textract": "^2.5.0",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
-
     "@types/compression": "^1.8.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
@@ -47,6 +49,7 @@
     "@types/morgan": "^1.9.10",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.3.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/pg": "^8.15.5",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",

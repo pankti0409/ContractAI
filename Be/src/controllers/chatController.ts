@@ -115,12 +115,12 @@ class ChatController {
 
     const userId = req.user!.userId;
     const { chatId } = req.params;
-    const { content, files } = req.body;
+    const { content, files, messageType = 'text' } = req.body;
 
     const result = await chatService.sendMessage(chatId, userId, {
       content,
       files,
-      messageType: 'user'
+      messageType
     });
 
     return res.status(201).json({
@@ -269,7 +269,7 @@ class ChatController {
       const result = await chatService.sendMessage(chatId, userId, {
         content,
         files,
-        messageType: 'user'
+        messageType: 'text'
       });
 
       // Send user message

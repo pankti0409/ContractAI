@@ -48,6 +48,16 @@ class FileService {
     return response.data;
   }
 
+  async getFileText(fileId: string): Promise<{
+    fileId: string;
+    originalName: string;
+    extractedText: string;
+    mimeType: string;
+  }> {
+    const response = await api.get(`/files/${fileId}/text`);
+    return response.data.data;
+  }
+
   getFileUrl(fileId: string): string {
     return `${api.defaults.baseURL}/files/${fileId}/download`;
   }

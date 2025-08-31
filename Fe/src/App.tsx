@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import './App.css';
 import Home from './components/Home';
 import Features from './components/Features';
@@ -9,6 +10,7 @@ import Footer from './components/Footer';
 import LoginModal from './components/LoginModal';
 import SignUpModal from './components/SignUpModal';
 import ChatInterface from './components/ChatInterface';
+import AdminPanel from './components/AdminPanel';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
@@ -37,50 +39,59 @@ function AppContent() {
     setShowLoginModal(true);
   };
 
-  // If user is authenticated, show chat interface
-  if (isAuthenticated) {
-    return (
-      <>
-        <ChatInterface />
-      </>
-    );
-  }
-
-  // Otherwise, show landing page
   return (
-    <div className='App'>
-      <Home 
-        setShowLoginModal={setShowLoginModal} 
-        setShowSignUpModal={setShowSignUpModal} 
-      />
-      <Features />
-      <About setShowSignUpModal={setShowSignUpModal} />
-      <Work />
-      <Contact />
-      <Footer />
-      
-      <LoginModal 
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-        onSwitchToSignUp={handleSwitchToSignUp}
-      />
-      
-      <SignUpModal 
-        isOpen={showSignUpModal}
-        onClose={() => setShowSignUpModal(false)}
-        onSwitchToLogin={handleSwitchToLogin}
-      />
-      
-
-    </div>
+    <Routes>
+      <Route path="/chat" element={
+        isAuthenticated ? <ChatInterface /> : <Navigate to="/" replace />
+      } />
+      <Route path="/" element={
+        isAuthenticated ? (
+          <Navigate to="/chat" replace />
+        ) : (
+          <div className='App'>
+            <Home 
+              setShowLoginModal={setShowLoginModal}
+              setShowSignUpModal={setShowSignUpModal}
+            />
+            <Features />
+            <About />
+            <Work />
+            <Contact />
+            <Footer />
+            
+            <LoginModal 
+              isOpen={showLoginModal}
+              onClose={() => setShowLoginModal(false)}
+              onSwitchToSignUp={handleSwitchToSignUp}
+            />
+            
+            <SignUpModal 
+              isOpen={showSignUpModal}
+              onClose={() => setShowSignUpModal(false)}
+              onSwitchToLogin={handleSwitchToLogin}
+            />
+          </div>
+        )
+      } />
+    </Routes>
   )
 }
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <Router>
+      <Routes>
+        {/* Admin route - independent of main auth */}
+        <Route path="/admin" element={<AdminPanel />} />
+        
+        {/* Main app routes - wrapped with AuthProvider */}
+        <Route path="/*" element={
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        } />
+      </Routes>
+    </Router>
   );
 }
 

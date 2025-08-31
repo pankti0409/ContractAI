@@ -194,7 +194,7 @@ class AuthController {
     res.clearCookie('refreshToken');
     res.clearCookie('sessionToken');
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Logout successful'
     });
@@ -213,7 +213,7 @@ class AuthController {
     res.clearCookie('refreshToken');
     res.clearCookie('sessionToken');
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Logged out from all devices successfully'
     });
@@ -302,7 +302,7 @@ class AuthController {
     
     // Get user profile (this would typically come from a user service)
     // For now, we'll return the user data from the token
-    res.json({
+    return res.json({
       success: true,
       data: {
         user: req.user
@@ -315,7 +315,7 @@ class AuthController {
     
     const sessions = await authService.getUserSessions(userId);
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         sessions
@@ -329,7 +329,7 @@ class AuthController {
 
     await authService.revokeSession(userId, sessionId);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Session revoked successfully'
     });
@@ -337,7 +337,7 @@ class AuthController {
 
   verifyToken = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     // If we reach here, the token is valid (middleware already verified it)
-    res.json({
+    return res.json({
       success: true,
       message: 'Token is valid',
       data: {
@@ -365,7 +365,7 @@ class AuthController {
       });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Session is valid',
       data: {
@@ -401,7 +401,7 @@ class AuthController {
 
     const sessionStats = await userSessionService.getSessionStats(session.userId);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Session information retrieved',
       data: {

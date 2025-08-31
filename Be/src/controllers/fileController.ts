@@ -168,6 +168,30 @@ class FileController {
     return res.send(buffer);
   });
 
+  getFileText = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    const userId = req.user!.userId;
+    const { fileId } = req.params;
+
+    const file = await fileService.getFile(fileId, userId);
+    
+    if (!file) {
+      return res.status(404).json({
+        success: false,
+        message: 'File not found'
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        fileId: file.id,
+        originalName: file.originalName,
+        extractedText: file.extractedText || 'No text content available',
+        mimeType: file.mimeType
+      }
+    });
+  });
+
   deleteFile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user!.userId;
     const { fileId } = req.params;

@@ -86,6 +86,7 @@ const Footer = () => {
               <a href="#privacy" className="bottom-link">Privacy</a>
               <a href="#terms" className="bottom-link">Terms</a>
               <a href="#cookies" className="bottom-link">Cookies</a>
+              <a href="/admin" className="bottom-link admin-link">Admin</a>
             </div>
           </div>
         </div>

@@ -141,6 +141,18 @@ router.get('/:fileId/preview',
 );
 
 /**
+ * @route   GET /api/files/:fileId/text
+ * @desc    Get extracted text content from a file
+ * @access  Private
+ */
+router.get('/:fileId/text', 
+  fileLimiter,
+  validateUUIDParam('fileId'),
+  handleValidationErrors,
+  fileController.getFileText
+);
+
+/**
  * @route   DELETE /api/files/:fileId
  * @desc    Delete a file
  * @access  Private

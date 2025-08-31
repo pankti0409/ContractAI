@@ -15,26 +15,28 @@ export const requireSession = async (
   req: SessionAuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     // Get session token from cookie, body, or header
     const sessionToken = req.cookies?.sessionToken || req.body?.sessionToken || req.headers['x-session-token'];
 
     if (!sessionToken) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'No session token provided'
       });
+      return;
     }
 
     // Validate session and get user info
     const sessionWithUser = await userSessionService.getSessionWithUser(sessionToken);
 
     if (!sessionWithUser) {
-      return res.status(401).json({
+      res.status(401).json({
         success: false,
         message: 'Invalid or expired session'
       });
+      return;
     }
 
     // Attach session and user to request object
@@ -49,13 +51,15 @@ export const requireSession = async (
     req.sessionUser = sessionWithUser.user;
 
     next();
+    return;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Session authentication error:', errorMessage);
-    return res.status(401).json({
+    res.status(401).json({
       success: false,
       message: 'Session authentication failed'
     });
+    return;
   }
 };
 
@@ -67,13 +71,14 @@ export const optionalSession = async (
   req: SessionAuthenticatedRequest,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
   try {
     // Get session token from cookie, body, or header
     const sessionToken = req.cookies?.sessionToken || req.body?.sessionToken || req.headers['x-session-token'];
 
     if (!sessionToken) {
-      return next();
+      next();
+      return;
     }
 
     // Validate session and get user info
@@ -93,10 +98,12 @@ export const optionalSession = async (
     }
 
     next();
+    return;
   } catch (error) {
     // Just continue if there's an error with the session
     console.warn('Optional session authentication error:', error);
     next();
+    return;
   }
 };
 
