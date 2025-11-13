@@ -7,6 +7,10 @@ export interface FileUpload {
   mimeType: string;
   size: number;
   uploadedAt: string;
+  summary?: string;
+  processingStatus?: 'uploaded' | 'processing' | 'completed' | 'failed';
+  missingClauses?: Array<{ name: string; severity: 'red' | 'amber' | 'green'; reason?: string }>;
+  severityOverall?: 'red' | 'amber' | 'green';
 }
 
 class FileService {
@@ -22,6 +26,7 @@ class FileService {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60000,
     });
 
     return response.data.data;
@@ -34,7 +39,7 @@ class FileService {
 
   async getChatFiles(chatId: string): Promise<FileUpload[]> {
     const response = await api.get(`/files/chats/${chatId}`);
-    return response.data.data.data;
+    return response.data.data;
   }
 
   async deleteFile(fileId: string): Promise<void> {
@@ -67,12 +72,8 @@ class FileService {
     const maxSize = 10 * 1024 * 1024; // 10MB
     const allowedTypes = [
       'application/pdf',
-      'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'text/csv',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      'text/plain'
     ];
 
     if (file.size > maxSize) {
@@ -80,7 +81,7 @@ class FileService {
     }
 
     if (!allowedTypes.includes(file.type)) {
-      return { valid: false, error: 'File type not supported. Please upload PDF, Word, Excel, or text files.' };
+      return { valid: false, error: 'File type not supported. Please upload PDF, DOCX, or TXT files.' };
     }
 
     return { valid: true };

@@ -220,8 +220,8 @@ class SessionAuthService {
       localStorage.setItem('sessionUser', JSON.stringify(response.user));
     }
     
-    // Start session monitoring
-    this.startSessionMonitoring();
+    // Session monitoring disabled to prevent cross-browser syncing
+    // this.startSessionMonitoring();
   }
 
   /**
@@ -260,26 +260,11 @@ class SessionAuthService {
   }
 
   /**
-   * Periodically validate session (for background checks)
+   * Periodically validate session (for background checks) - DISABLED
    */
   startSessionMonitoring(intervalMs: number = 300000): () => void { // 5 minutes default
-    // Clear existing interval if any
-    this.stopSessionMonitoring();
-    
-    this.monitoringInterval = setInterval(async () => {
-      if (this.sessionToken) {
-        const validation = await this.validateSession();
-        if (!validation.success) {
-          // Session expired or invalid, clear it
-          this.clearSession();
-          // Dispatch custom event to notify auth context
-          window.dispatchEvent(new CustomEvent('sessionExpired'));
-        }
-      }
-    }, intervalMs);
-
-    // Return cleanup function
-    return () => this.stopSessionMonitoring();
+    // Session monitoring disabled to prevent clearing chat data
+    return () => {};
   }
 
   /**

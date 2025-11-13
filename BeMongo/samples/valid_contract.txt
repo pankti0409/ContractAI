@@ -1,0 +1,5 @@
+This Agreement is between Alpha Corp ("Alpha") and Beta LLC ("Beta"). The term of this Agreement is 12 months starting Jan 1, 2025 and ending Dec 31, 2025. Payment terms: Beta shall pay Alpha $5,000 per month, net 30 days. Confidentiality: Both parties agree to keep proprietary information confidential. Liability is limited to direct damages not exceeding $50,000. Governing Law: State of California. Dispute Resolution: binding arbitration in San Francisco. Termination: Either party may terminate with 30 days written notice.
+
+Signed by:
+John Doe, CEO of Alpha Corp
+Jane Smith, COO of Beta LLC

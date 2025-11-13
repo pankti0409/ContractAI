@@ -30,12 +30,12 @@ export interface AuthResponse {
 class AuthService {
   async login(data: LoginData): Promise<AuthResponse> {
     const response = await api.post('/auth/login', data);
-    return response.data.data;
+    return response.data;
   }
 
   async register(data: SignupData): Promise<AuthResponse> {
     const response = await api.post('/auth/register', data);
-    return response.data.data;
+    return response.data;
   }
 
   async refreshToken(): Promise<{ accessToken: string }> {
@@ -54,6 +54,14 @@ class AuthService {
       localStorage.removeItem('user');
       localStorage.removeItem('isAuthenticated');
     }
+  }
+
+  async updateProfile(data: { firstName?: string; lastName?: string; company?: string }): Promise<User> {
+    const response = await api.put('/auth/profile', data);
+    const updated: User = response.data.user;
+    // Persist locally for immediate UI reflection
+    localStorage.setItem('user', JSON.stringify(updated));
+    return updated;
   }
 
   async changePassword(data: { currentPassword: string; newPassword: string }): Promise<{ message: string }> {

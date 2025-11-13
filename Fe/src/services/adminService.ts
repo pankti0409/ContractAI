@@ -1,14 +1,4 @@
-import axios from 'axios';
-
-// Admin API service - separate from main API to use different port
-const adminApi = axios.create({
-  baseURL: 'http://localhost:3000/api/admin',
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  withCredentials: true,
-});
+import api from './api';
 
 export interface AdminLoginRequest {
   username: string;
@@ -60,33 +50,28 @@ export interface FileStats {
 }
 
 class AdminService {
-  private token: string | null = null;
-
-  constructor() {
-    // Remove persistent session - no automatic token loading
-  }
-
-  private setAuthHeader(token: string) {
-    adminApi.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  }
-
-  private removeAuthHeader() {
-    delete adminApi.defaults.headers.common['Authorization'];
-  }
+  private token: string | null = localStorage.getItem('accessToken');
 
   async login(credentials: AdminLoginRequest): Promise<AdminLoginResponse> {
     try {
-      const response = await adminApi.post<AdminLoginResponse>('/login', credentials);
-      
-      if (response.data.success) {
-        const token = response.data.token || response.data.data?.token;
-        if (token) {
-          this.token = token;
-          this.setAuthHeader(token);
-        }
+      const response = await api.post('/auth/admin/login', {
+        email: credentials.username,
+        password: credentials.password,
+      });
+      const { accessToken, admin } = response.data;
+      if (accessToken) {
+        this.token = accessToken;
+        localStorage.setItem('accessToken', accessToken);
       }
-      
-      return response.data;
+      return {
+        success: true,
+        message: 'Logged in',
+        token: accessToken,
+        data: {
+          token: accessToken,
+          user: { id: admin.id, email: admin.email, role: 'admin' }
+        }
+      };
     } catch (error: any) {
       console.error('Login error:', error);
       
@@ -94,7 +79,7 @@ class AdminService {
       if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
         return {
           success: false,
-          message: 'Backend server is not available. Please ensure the server is running on port 3001.'
+          message: 'Backend server is not available. Please ensure the server is running on port 3000.'
         };
       }
       
@@ -111,21 +96,26 @@ class AdminService {
 
   async logout(): Promise<void> {
     try {
-      // Try to call logout endpoint if server is available
-      await adminApi.post('/logout');
+      await api.post('/auth/logout');
     } catch (error) {
       // Ignore logout errors - just clear local state
       console.log('Logout endpoint not available, clearing local state only');
     } finally {
       this.token = null;
-      this.removeAuthHeader();
+      localStorage.removeItem('accessToken');
     }
   }
 
   async getOverviewStats(): Promise<{ success: boolean; data?: AdminStats; message?: string }> {
     try {
-      const response = await adminApi.get('/stats/overview');
-      return response.data;
+      const response = await api.get('/admin/overview');
+      return { success: true, data: {
+        totalUsers: response.data.users ?? 0,
+        totalChats: response.data.chats ?? 0,
+        totalFiles: response.data.files ?? 0,
+        totalMessages: response.data.messages ?? 0,
+        systemHealth: { status: 'ok', uptime: 'n/a', responseTime: 'n/a', errorRate: 'n/a' },
+      }};
     } catch (error: any) {
       console.error('Overview stats error:', error);
       
@@ -145,8 +135,14 @@ class AdminService {
 
   async getUserStats(): Promise<{ success: boolean; data?: UserStats; message?: string }> {
     try {
-      const response = await adminApi.get('/stats/users');
-      return response.data;
+      const response = await api.get('/admin/user');
+      return { success: true, data: {
+        totalUsers: response.data.totalUsers ?? 0,
+        activeUsers: 0,
+        newUsersThisMonth: 0,
+        userGrowth: response.data.userGrowth ?? [],
+        usersByRegion: [],
+      }};
     } catch (error: any) {
       console.error('User stats error:', error);
       
@@ -166,8 +162,13 @@ class AdminService {
 
   async getFileStats(): Promise<{ success: boolean; data?: FileStats; message?: string }> {
     try {
-      const response = await adminApi.get('/stats/files');
-      return response.data;
+      const response = await api.get('/admin/file');
+      return { success: true, data: {
+        totalFiles: response.data.totalFiles ?? 0,
+        totalSize: response.data.totalSize ?? '0',
+        fileTypes: response.data.fileTypes ?? [],
+        uploadTrend: response.data.uploadTrend ?? [],
+      }};
     } catch (error: any) {
       console.error('File stats error:', error);
       
@@ -196,8 +197,7 @@ class AdminService {
   // Method to check if backend is available
   async checkBackendStatus(): Promise<boolean> {
     try {
-      // Use axios directly to check the main health endpoint
-      const response = await fetch('http://localhost:3000/health');
+      const response = await fetch('http://localhost:3000/api/health');
       return response.ok;
     } catch (error) {
       return false;

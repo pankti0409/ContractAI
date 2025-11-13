@@ -1,0 +1,11 @@
+{
+  "parties": true,
+  "term": true,
+  "termination": true,
+  "payment": true,
+  "confidentiality": true,
+  "liability": true,
+  "governingLaw": true,
+  "disputeResolution": true,
+  "signatories": true
+}

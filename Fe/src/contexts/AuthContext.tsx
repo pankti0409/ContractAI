@@ -13,6 +13,7 @@ interface AuthContextType {
   signup: (userData: SignupData) => Promise<boolean>;
   logout: () => void;
   clearAuthData: () => void;
+  updateProfile: (data: { firstName?: string; lastName?: string; company?: string }) => Promise<boolean>;
   loading: boolean;
 }
 
@@ -39,37 +40,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        // First try session-based authentication (cross-browser)
-        const sessionCheck = await sessionAuthService.checkSession();
+        // Check stored auth data without server validation or cross-browser syncing
+        const storedUser = authService.getCurrentUser();
+        const isAuth = authService.isAuthenticated();
         
-        if (sessionCheck.success && sessionCheck.data.hasSession && sessionCheck.data.user) {
-          console.log('✅ Session-based authentication successful');
-          setUser(sessionCheck.data.user);
+        if (storedUser && isAuth) {
+          console.log('✅ Token-based authentication successful');
+          setUser(storedUser);
           setIsAuthenticated(true);
-          
-          // Sync with localStorage for consistency
-          localStorage.setItem('user', JSON.stringify(sessionCheck.data.user));
-          localStorage.setItem('isAuthenticated', 'true');
-          return;
-        }
-        
-        // Fallback to traditional server session validation
-        const isSessionValid = await sessionService.validateSession();
-        
-        if (isSessionValid) {
-          // Session is valid, check stored auth data
-          const storedUser = authService.getCurrentUser();
-          const isAuth = authService.isAuthenticated();
-          
-          if (storedUser && isAuth) {
-            console.log('✅ Token-based authentication successful');
-            setUser(storedUser);
-            setIsAuthenticated(true);
-          }
         } else {
           console.log('❌ No valid authentication found');
         }
-        // If session is invalid, auth data has already been cleared by sessionService
       } catch (error) {
         console.error('Auth initialization error:', error);
         // Clear potentially corrupted data
@@ -98,11 +79,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('accessToken', response.accessToken);
       
-      // Initialize session-based authentication
-      if (response.sessionToken) {
-        sessionAuthService.initializeFromLoginResponse(response);
-        console.log('✅ Session-based authentication initialized');
-      }
+      // Session-based authentication disabled to prevent cross-browser syncing
+      // if (response.sessionToken) {
+      //   sessionAuthService.initializeFromLoginResponse(response);
+      //   console.log('✅ Session-based authentication initialized');
+      // }
       
       return true;
     } catch (error) {
@@ -123,11 +104,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('isAuthenticated', 'true');
       localStorage.setItem('accessToken', response.accessToken);
       
-      // Initialize session-based authentication
-      if (response.sessionToken) {
-        sessionAuthService.initializeFromLoginResponse(response);
-        console.log('✅ Session-based authentication initialized');
-      }
+      // Session-based authentication disabled to prevent cross-browser syncing
+      // if (response.sessionToken) {
+      //   sessionAuthService.initializeFromLoginResponse(response);
+      //   console.log('✅ Session-based authentication initialized');
+      // }
       
       return true;
     } catch (error) {
@@ -142,8 +123,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error) {
       console.error('Logout error:', error);
     } finally {
-      // Clear session-based authentication
-      sessionAuthService.clearSession();
+      // Session-based authentication disabled to prevent cross-browser syncing
+      // sessionAuthService.clearSession();
       
       setUser(null);
       setIsAuthenticated(false);
@@ -154,56 +135,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Use the utility function to clear localStorage (preserve chat data)
     clearAuthDataUtil(true);
     
-    // Clear session data
-    sessionService.clearSession();
-    sessionAuthService.clearSession();
+    // Session data clearing disabled to prevent cross-browser syncing
+    // sessionService.clearSession();
+    // sessionAuthService.clearSession();
     
     // Reset state
     setUser(null);
     setIsAuthenticated(false);
   };
 
-  // Listen for localStorage changes and custom auth events
-  React.useEffect(() => {
-    const handleStorageChange = () => {
-      const storedUser = localStorage.getItem('user');
-      const storedAuth = localStorage.getItem('isAuthenticated');
-      
-      // Only clear auth state if both user and auth status are missing
-      // This prevents clearing during the authentication process
-      if (!storedUser && storedAuth !== 'true') {
-        setUser(null);
-        setIsAuthenticated(false);
-      } else if (storedUser && storedAuth === 'true') {
-        // Sync state with localStorage if they differ
-        const parsedUser = JSON.parse(storedUser);
-        if (!user || user.id !== parsedUser.id) {
-          setUser(parsedUser);
-          setIsAuthenticated(true);
-        }
-      }
-    };
+  const updateProfile = async (data: { firstName?: string; lastName?: string; company?: string }): Promise<boolean> => {
+    try {
+      const updated = await authService.updateProfile(data);
+      setUser(updated);
+      return true;
+    } catch (error) {
+      console.error('Update profile error:', error);
+      return false;
+    }
+  };
 
-    const handleAuthStateChange = () => {
-      // Handle custom auth state change events (e.g., from API interceptor)
-      handleStorageChange();
-    };
+  // Listen for localStorage changes and custom auth events - DISABLED to prevent cross-browser syncing
+  // React.useEffect(() => {
+  //   const handleStorageChange = () => {
+  //     const storedUser = localStorage.getItem('user');
+  //     const storedAuth = localStorage.getItem('isAuthenticated');
+  //     
+  //     // Only clear auth state if both user and auth status are missing
+  //     // This prevents clearing during the authentication process
+  //     if (!storedUser && storedAuth !== 'true') {
+  //       setUser(null);
+  //       setIsAuthenticated(false);
+  //     } else if (storedUser && storedAuth === 'true') {
+  //       // Sync state with localStorage if they differ
+  //       const parsedUser = JSON.parse(storedUser);
+  //       if (!user || user.id !== parsedUser.id) {
+  //         setUser(parsedUser);
+  //         setIsAuthenticated(true);
+  //       }
+  //     }
+  //   };
 
-    // Listen for storage events from other tabs/windows
-    window.addEventListener('storage', handleStorageChange);
-    
-    // Listen for custom auth state change events
-    window.addEventListener('authStateChanged', handleAuthStateChange);
-    
-    // Check less frequently to avoid interference with auth process
-    const interval = setInterval(handleStorageChange, 5000);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('authStateChanged', handleAuthStateChange);
-      clearInterval(interval);
-    };
-  }, [user]);
+  //   const handleAuthStateChange = () => {
+  //     // Handle custom auth state change events (e.g., from API interceptor)
+  //     handleStorageChange();
+  //   };
+
+  //   // Listen for storage events from other tabs/windows
+  //   window.addEventListener('storage', handleStorageChange);
+  //   
+  //   // Listen for custom auth state change events
+  //   window.addEventListener('authStateChanged', handleAuthStateChange);
+  //   
+  //   return () => {
+  //     window.removeEventListener('storage', handleStorageChange);
+  //     window.removeEventListener('authStateChanged', handleAuthStateChange);
+  //   };
+  // }, [user]);
 
   const value: AuthContextType = {
     user,
@@ -212,6 +200,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signup,
     logout,
     clearAuthData,
+    updateProfile,
     loading
   };
 

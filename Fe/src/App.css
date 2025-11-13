@@ -1028,6 +1028,9 @@ nav {
   display: flex;
   flex-direction: column;
   border-right: 1px solid #2d2d2d;
+  /* Ensure the sidebar itself can scroll freely */
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar-header {
@@ -1104,6 +1107,22 @@ nav {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
+}
+
+.rename-chat-btn,
+.history-chat-btn {
+  margin-left: 8px;
+  background: transparent;
+  color: #ddd;
+  border: 1px solid #4d4d4f;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.rename-chat-btn:hover,
+.history-chat-btn:hover {
+  color: #fff;
+  border-color: #6d6d71;
 }
 
 .header-actions {
@@ -2276,4 +2295,33 @@ nav {
   .document-modal-content {
     padding: 20px;
   }
+}
+.markdown-content {
+  line-height: 1.6;
+  color: inherit;
+}
+.markdown-content h2, .markdown-content h3, .markdown-content h4 {
+  margin: 8px 0;
+  font-weight: 600;
+}
+.markdown-content ul, .markdown-content ol {
+  padding-left: 1.25rem;
+  margin: 6px 0;
+}
+.markdown-content code {
+  background: rgba(255,255,255,0.06);
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+.markdown-content pre {
+  background: rgba(255,255,255,0.06);
+  padding: 10px;
+  border-radius: 6px;
+  overflow: auto;
+}
+.markdown-content blockquote {
+  border-left: 3px solid rgba(255,255,255,0.2);
+  padding-left: 10px;
+  margin: 8px 0;
+  color: inherit;
 }

@@ -30,8 +30,10 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const hasToken = !!localStorage.getItem('accessToken');
     
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Only attempt refresh if we currently have a token
+    if (error.response?.status === 401 && !originalRequest._retry && hasToken) {
       originalRequest._retry = true;
       
       try {

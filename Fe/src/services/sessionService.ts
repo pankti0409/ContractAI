@@ -38,9 +38,8 @@ class SessionService {
       }
 
       if (!isValid) {
-        // Server has restarted - clear auth data and update session ID
-        console.log('Server restart detected - clearing authentication data (preserving chat data)');
-        clearAuthDataOnlyAndNotify();
+        // Server has restarted - update session ID but don't clear auth data
+        console.log('Server restart detected - updating session ID (preserving all data)');
         localStorage.setItem(SessionService.SESSION_KEY, sessionId);
         return false;
       }
@@ -48,8 +47,7 @@ class SessionService {
       return true;
     } catch (error) {
       console.error('Session validation failed:', error);
-      // On error, assume session is invalid and clear auth data (preserve chat data)
-      clearAuthDataOnlyAndNotify();
+      // On error, just return false without clearing any data
       return false;
     }
   }
